@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 // ReportGenerator handles generating various types of reports
@@ -34,7 +36,7 @@ func (r *ReportGenerator) GenerateHTMLReport(outputPath string) error {
 		return fmt.Errorf("failed to prepare report data: %w", err)
 	}
 
-	htmlContent := fmt.Sprintf(<!DOCTYPE html>
+	htmlContent := fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <head>
     <title>ApexPenetrate Report</title>
@@ -51,7 +53,7 @@ func (r *ReportGenerator) GenerateHTMLReport(outputPath string) error {
     <pre>%s</pre>
     <p>This is a placeholder report. Implement detailed formatting here.</p>
 </body>
-</html>, time.Now().Format("2006-01-02 15:04:05 MST"), string(resultsJSON))
+</html>`, time.Now().Format("2006-01-02 15:04:05 MST"), string(resultsJSON))
 
 	err = os.WriteFile(outputPath, []byte(htmlContent), 0644) // 0644 is standard file permissions
 	if err != nil {

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
@@ -47,8 +48,9 @@ easy to use, providing valuable insights for security professionals worldwide.`,
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	printBanner()
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\r\n", err)
+		color.Red("Error: %v", err)
 		os.Exit(1)
 	}
 }
@@ -67,8 +69,7 @@ var autoCmd = &cobra.Command{
 			fmt.Fprintln(os.Stderr, "--target is required")
 			os.Exit(1)
 		}
-		log := logger.GetLogger()
-		log.Infof("[AUTO] Starting full automated workflow for %s", autoTarget)
+		color.Cyan("\n🚀 Starting ApexPenetrate Full-Auto Workflow for %s! 🚀\n", autoTarget)
 
 		// Parse modules to run
 		mods := map[string]bool{}
@@ -80,121 +81,116 @@ var autoCmd = &cobra.Command{
 		// 1. Subdomain Enumeration
 		var subdomains []string
 		if all || mods["recon"] {
-			log.Info("[AUTO] Running subdomain enumeration...")
-			enumerator := reconnaissance.NewSubdomainEnumerator(autoTarget, "")
+			color.Yellow("🔎 Running subdomain enumeration...")
+			enumerator := reconnaissance.NewSubdomainEnumerator(autoTarget)
 			subdomains, _ = enumerator.EnumerateSubdomains()
-			log.Infof("[AUTO] Found %d subdomains", len(subdomains))
+			color.Green("✅ Found %d subdomains", len(subdomains))
 		}
 
 		// 2. Port Scan + Banner Grabbing
 		var portResults map[int]map[string]string
+		var smbResults []map[string]string
 		if all || mods["ports"] {
-			log.Info("[AUTO] Running port scan with banner grabbing...")
+			color.Yellow("🔌 Running port scan with banner grabbing...")
 			scanner := reconnaissance.NewPortScanner(autoTarget, nil, autoTimeout)
 			portResults = scanner.ScanPortsWithBanners()
+			color.Green("✅ Port scan complete!")
 		}
 
 		// 3. Shodan Lookup
 		if (all || mods["shodan"]) && shodanAPIKey != "" {
-			log.Info("[AUTO] Querying Shodan API...")
+			color.Yellow("🌐 Querying Shodan API...")
 			shodanRes, err := reconnaissance.ShodanHostLookup(shodanAPIKey, autoTarget)
 			if err == nil {
-				fmt.Printf("Shodan: IP: %s, Ports: %v, Hostnames: %v\n", shodanRes.IPStr, shodanRes.Ports, shodanRes.Hostnames)
+				color.Green("✅ Shodan: IP: %s, Ports: %v, Hostnames: %v", shodanRes.IPStr, shodanRes.Ports, shodanRes.Hostnames)
 			} else {
-				log.Warnf("Shodan error: %v", err)
+				color.Red("❌ Shodan error: %v", err)
 			}
 		}
 
 		// 4. Censys Lookup
 		if (all || mods["censys"]) && censysID != "" && censysSecret != "" {
-			log.Info("[AUTO] Querying Censys API...")
+			color.Yellow("🌐 Querying Censys API...")
 			censysRes, err := reconnaissance.CensysHostLookup(censysID, censysSecret, autoTarget)
 			if err == nil {
-				fmt.Printf("Censys: IP: %s, Protocols: %v, Location: %s, %s\n", censysRes.IP, censysRes.Protocols, censysRes.Location.City, censysRes.Location.Country)
+				color.Green("✅ Censys: IP: %s, Protocols: %v, Location: %s, %s", censysRes.IP, censysRes.Protocols, censysRes.Location.City, censysRes.Location.Country)
 			} else {
-				log.Warnf("Censys error: %v", err)
+				color.Red("❌ Censys error: %v", err)
 			}
 		}
 
 		// 5. XSS Scan (on all subdomains if found)
 		if (all || mods["xss"]) && len(subdomains) > 0 {
-			log.Info("[AUTO] Running XSS scan on discovered subdomains...")
+			color.Yellow("🧪 Running XSS scan on discovered subdomains...")
 			for _, sub := range subdomains {
 				url := "http://" + sub
 				xssScanner := web_vulnerabilities.NewXSSScanner(url)
 				findings := xssScanner.ScanXSS()
 				for _, f := range findings {
-					fmt.Printf("XSS found: %v\n", f)
+					color.Red("🚨 XSS found: %v", f)
 				}
 			}
 		}
 
 		// 5b. SQLi Scan (on all subdomains if found)
 		if (all || mods["sqli"]) && len(subdomains) > 0 {
-			log.Info("[AUTO] Running SQLi scan on discovered subdomains...")
+			color.Yellow("🧪 Running SQLi scan on discovered subdomains...")
 			for _, sub := range subdomains {
 				url := "http://" + sub
 				sqliScanner := web_vulnerabilities.NewSQLiScanner(url)
 				findings := sqliScanner.ScanSQLi()
 				for _, f := range findings {
-					fmt.Printf("SQLi found: %v\n", f)
+					color.Red("🚨 SQLi found: %v", f)
 				}
 			}
 		}
 
 		// 5c. DNS Recon
-		if (all || mods["dns"]) {
-			log.Info("[AUTO] Running DNS recon...")
+		if all || mods["dns"] {
+			color.Yellow("🌐 Running DNS recon...")
 			dnsRes, err := reconnaissance.DNSRecon(autoTarget)
 			if err == nil {
-				fmt.Printf("DNS Records: %v\n", dnsRes.Records)
+				color.Green("✅ DNS Records: %v", dnsRes.Records)
 			} else {
-				log.Warnf("DNS recon error: %v", err)
+				color.Red("❌ DNS recon error: %v", err)
 			}
 		}
-
-		// 5d. HTTP Recon
-		if (all || mods["http"]) {
-			log.Info("[AUTO] Running HTTP recon...")
+		if all || mods["http"] {
+			color.Yellow("🌐 Running HTTP recon...")
 			httpRes, err := reconnaissance.HTTPRecon("http://" + autoTarget)
 			if err == nil {
-				fmt.Printf("HTTP Status: %d, Headers: %v\n", httpRes.Status, httpRes.Headers)
+				color.Green("✅ HTTP Status: %d, Headers: %v", httpRes.Status, httpRes.Headers)
 			} else {
-				log.Warnf("HTTP recon error: %v", err)
+				color.Red("❌ HTTP recon error: %v", err)
 			}
 		}
-
-		// 6. SMB Enum if 445 open
-		var smbResults []map[string]string
 		if (all || mods["smb"]) && portResults != nil {
 			if port, ok := portResults[445]; ok && port["state"] == "OPEN" {
-				log.Info("[AUTO] Running SMB enumeration...")
+				color.Yellow("🔒 Running SMB enumeration...")
 				smbEnum := network_vulnerabilities.NewSMBEnumerator(autoTarget)
 				smbResults = smbEnum.EnumerateShares()
+				color.Green("✅ SMB enumeration complete!")
 			}
 		}
-
-		// 7. Generate Report (console summary for now)
-		fmt.Println("\n--- Automated Recon Summary ---")
+		color.Cyan("\n🎯 --- Automated Recon Summary --- 🎯")
 		if len(subdomains) > 0 {
-			fmt.Printf("Subdomains found: %d\n", len(subdomains))
+			color.Green("Subdomains found: %d", len(subdomains))
 		}
 		if portResults != nil {
-			fmt.Printf("Open ports: ")
+			color.Green("Open ports:")
 			for port, res := range portResults {
 				if res["state"] == "OPEN" {
-					fmt.Printf("%d (banner: %s), ", port, strings.TrimSpace(res["banner"]))
+					color.Magenta("  ➡️ %d (banner: %s)", port, strings.TrimSpace(res["banner"]))
 				}
 			}
-			fmt.Println()
 		}
 		if len(smbResults) > 0 {
-			fmt.Println("SMB Shares:")
+			color.Green("SMB Shares:")
 			for _, share := range smbResults {
-				fmt.Printf("- %s (%s)\n", share["share"], share["access"])
+				color.Magenta("  ➡️ %s (%s)", share["share"], share["access"])
 			}
 		}
-		fmt.Println("--- End of Summary ---")
+		color.Cyan("--- End of Summary --- 🏁\n")
 	},
 }
 
@@ -219,6 +215,22 @@ func loadConfigOrExit() {
 			modules = strings.Join(cfg.Modules, ",")
 		}
 	}
+}
+
+func printBanner() {
+	banner := `
+ ________  ________  _______      ___    ___ ________  _______   ________   _______  _________  ________  ________  _________  _______      
+|\   __  \|\   __  \|\  ___ \    |\  \  /  /|\   __  \|\  ___ \ |\   ___  \|\  ___ \|\___   ___\\   __  \|\   __  \|\___   ___\\  ___ \     
+\ \  \|\  \ \  \|\  \ \   __/|   \ \  \/  / | \  \|\  \ \   __/|\ \  \\ \  \ \   __/\|___ \  \_\ \  \|\  \ \  \|\  \|___ \  \_\ \   __/|    
+ \ \   __  \ \   ____\ \  \_|/__  \ \    / / \ \   ____\ \  \_|/_\ \  \\ \  \ \  \_|/__  \ \  \ \ \   _  _\ \   __  \   \ \  \ \ \  \_|/__  
+  \ \  \ \  \ \  \___|\ \  \_|\ \  /     \/   \ \  \___|\ \  \_|\ \ \  \\ \  \ \  \_|\ \  \ \  \ \ \  \\  \\ \  \ \  \   \ \  \ \ \  \_|\ \ 
+   \ \__\ \__\ \__\    \ \_______\/  /\   \    \ \__\    \ \_______\ \__\\ \__\ \_______\  \ \__\ \ \__\\ _\\ \__\ \__\   \ \__\ \ \_______\
+    \|__|\|__|\|__|     \|_______/__/ /\ __\    \|__|     \|_______|\|__| \|__|\|_______|   \|__|  \|__|\|__|\|__|\|__|    \|__|  \|_______|
+                                 |__|/ \|__|                                                                                                
+`
+	color.Cyan(banner)
+	color.Magenta("ApexPenetrateGo v%s - By Cyber Enthusiasts for Cyber Enthusiasts!", version)
+	color.Yellow("https://github.com/YourUsername/apexPenetrateGo\n")
 }
 
 func init() {
