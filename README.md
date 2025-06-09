@@ -28,7 +28,7 @@ Go 1.22 or newer is required.
 
 1.  **Clone the repository:**
     `ash
-    git clone [https://github.com/sbeving/apexPenetrate.git](https://github.com/YourUsername/apexPenetrateGo.git)
+    git clone [https://github.com/sbeving/ApexPenetrate.git](https://github.com/sbeving/ApexPenetrate.git)
     cd ApexPenetrate
     `
 
