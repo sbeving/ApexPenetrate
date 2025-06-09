@@ -1,0 +1,7 @@
+// go .gitignore
+# This file is used to specify files and directories that should be ignored by Git.
+# It is typically used to avoid committing files that are not necessary for the project,
+
+*.sum
+*.mod
+
