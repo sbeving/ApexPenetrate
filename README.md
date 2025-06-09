@@ -1,8 +1,8 @@
-# ApexPenetrateGo
+# ApexPenetrate
 
 ![ApexPenetrate Logo Placeholder](https://via.placeholder.com/150x50?text=ApexPenetrate-Go)
 
-ApexPenetrateGo is an automated penetration testing tool written in Go. It streamlines various stages of security assessments, from reconnaissance to vulnerability scanning and reporting.
+ApexPenetrate is an automated penetration testing tool written in Go. It streamlines various stages of security assessments, from reconnaissance to vulnerability scanning and reporting.
 
 ## Features (Initial)
 
@@ -28,8 +28,8 @@ Go 1.22 or newer is required.
 
 1.  **Clone the repository:**
     `ash
-    git clone [https://github.com/YourUsername/apexPenetrateGo.git](https://github.com/YourUsername/apexPenetrateGo.git)
-    cd apexPenetrateGo
+    git clone [https://github.com/sbeving/apexPenetrate.git](https://github.com/YourUsername/apexPenetrateGo.git)
+    cd ApexPenetrate
     `
 
 2.  **Download dependencies and build the executable:**
