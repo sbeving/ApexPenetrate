@@ -63,6 +63,57 @@ func (p *httpParamFuzzerPlugin) Run(target string, options map[string]interface{
 	return HTTPParamFuzzer(target, params), nil
 }
 
+func (p *httpParamFuzzerPlugin) Help() string {
+	return `
+🔍 HTTP Parameter Fuzzer - Hidden Parameter Discovery Tool
+
+DESCRIPTION:
+  Discovers hidden HTTP parameters by fuzzing GET/POST requests with common
+  parameter names. Essential for finding debug parameters and hidden functionality.
+
+USAGE:
+  httpparamfuzzer <target_url> [options]
+
+OPTIONS:
+  params - Comma-separated list of parameters to test (optional)
+
+EXAMPLES:
+  httpparamfuzzer https://example.com/search
+  httpparamfuzzer https://api.example.com --params debug,admin,test
+  httpparamfuzzer https://example.com/login
+
+ATTACK SCENARIOS:
+  • Debug Parameter Discovery: Find development/debug parameters
+  • Hidden Functionality: Uncover undocumented API endpoints
+  • Admin Features: Discover administrative parameters
+  • Bypass Mechanisms: Find parameters that alter application behavior
+
+COMMON PARAMETERS:
+  • Debug: debug, test, dev, verbose, trace
+  • Admin: admin, administrator, root, su
+  • Authentication: token, key, auth, session
+  • Control: action, cmd, command, exec
+  • Filtering: filter, search, query, q
+
+PRO TIPS:
+  💡 Monitor response size differences for parameter acceptance
+  💡 Check for different HTTP status codes
+  💡 Look for error message changes indicating parameter recognition
+  💡 Test both GET and POST parameter injection
+  💡 Use wordlists specific to discovered technology stack
+  💡 Check for reflected parameter values in responses
+
+DETECTION METHODS:
+  • Response Length Analysis
+  • Status Code Differences
+  • Error Message Variations
+  • Response Time Analysis
+  • Content-Type Changes
+
+RISK LEVEL: Medium (information disclosure, hidden functionality)
+`
+}
+
 func init() {
 	core.RegisterPlugin(&httpParamFuzzerPlugin{})
 }

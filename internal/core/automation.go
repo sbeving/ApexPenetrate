@@ -24,9 +24,46 @@ type ScanProfile struct {
 	Enabled     bool                   `json:"enabled"`
 }
 
+// ScanChain defines a sequence of modules with conditional execution
+type ScanChain struct {
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Steps       []ChainStep            `json:"steps"`
+	Options     map[string]interface{} `json:"options"`
+	OutputPath  string                 `json:"output_path"`
+}
+
+// ChainStep represents a single step in a scan chain
+type ChainStep struct {
+	Module      string                 `json:"module"`
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Options     map[string]interface{} `json:"options"`
+	Conditions  []ChainCondition       `json:"conditions"`
+	OnSuccess   []string               `json:"on_success"` // Next modules to run on success
+	OnFailure   []string               `json:"on_failure"` // Next modules to run on failure
+}
+
+// ChainCondition defines when a step should execute
+type ChainCondition struct {
+	Type     string      `json:"type"`     // "result_contains", "ports_found", "vulns_found", etc.
+	Value    interface{} `json:"value"`    // The value to check against
+	Operator string      `json:"operator"` // "equals", "contains", "greater_than", etc.
+}
+
+// ChainExecution tracks the execution of a scan chain
+type ChainExecution struct {
+	Chain         ScanChain
+	Results       map[string]interface{}
+	ExecutedSteps []string
+	StartTime     time.Time
+	EndTime       time.Time
+}
+
 // AutomationEngine handles scheduled scans and profiles
 type AutomationEngine struct {
 	profiles  []ScanProfile
+	chains    []ScanChain
 	log       *logrus.Logger
 	isRunning bool
 	stopChan  chan bool
@@ -37,6 +74,7 @@ type AutomationEngine struct {
 func NewAutomationEngine() *AutomationEngine {
 	return &AutomationEngine{
 		profiles:  []ScanProfile{},
+		chains:    []ScanChain{},
 		log:       logger.GetLogger(),
 		isRunning: false,
 		stopChan:  make(chan bool),
@@ -342,4 +380,311 @@ func (ae *AutomationEngine) CreateDefaultProfiles() {
 	ae.AddProfile(quickRecon)
 	ae.AddProfile(fullScan)
 	ae.AddProfile(webAppScan)
+}
+
+// AddChain adds a new scan chain
+func (ae *AutomationEngine) AddChain(chain ScanChain) {
+	ae.chains = append(ae.chains, chain)
+	ae.log.Infof("Added scan chain: %s", chain.Name)
+}
+
+// ListChains returns all scan chains
+func (ae *AutomationEngine) ListChains() []ScanChain {
+	return ae.chains
+}
+
+// ExecuteChain executes a scan chain with conditional logic
+func (ae *AutomationEngine) ExecuteChain(chainName, target string) (*ChainExecution, error) {
+	// Find the chain
+	var chain ScanChain
+	found := false
+	for _, c := range ae.chains {
+		if c.Name == chainName {
+			chain = c
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("chain not found: %s", chainName)
+	}
+
+	ae.log.Infof("🔗 Executing scan chain: %s on target: %s", chainName, target)
+
+	execution := &ChainExecution{
+		Chain:         chain,
+		Results:       make(map[string]interface{}),
+		ExecutedSteps: []string{},
+		StartTime:     time.Now(),
+	}
+
+	// Initialize report generator
+	ae.reportGen = reporting.NewReportGenerator()
+	ae.reportGen.SetTarget(target)
+
+	// Execute chain steps
+	err := ae.executeChainSteps(execution, target)
+	execution.EndTime = time.Now()
+
+	if err != nil {
+		ae.log.Errorf("Chain execution failed: %v", err)
+		return execution, err
+	}
+
+	// Finalize and generate reports
+	ae.reportGen.FinalizeScan()
+	timestamp := time.Now().Format("20060102-150405")
+
+	if chain.OutputPath != "" {
+		htmlPath := fmt.Sprintf("%s/%s-chain-%s.html", chain.OutputPath, chainName, timestamp)
+		jsonPath := fmt.Sprintf("%s/%s-chain-%s.json", chainName, chainName, timestamp)
+
+		ae.reportGen.GenerateHTMLReport(htmlPath)
+		ae.reportGen.GenerateJSONReport(jsonPath)
+	}
+
+	ae.log.Infof("✅ Chain execution completed: %s", chainName)
+	return execution, nil
+}
+
+// executeChainSteps executes the steps in a chain with conditional logic
+func (ae *AutomationEngine) executeChainSteps(execution *ChainExecution, target string) error {
+	// Start with the first step
+	if len(execution.Chain.Steps) == 0 {
+		return fmt.Errorf("no steps defined in chain")
+	}
+	// Execute steps in order, checking conditions
+	for _, step := range execution.Chain.Steps {
+		// Check if step should be executed based on conditions
+		if !ae.shouldExecuteStep(step, execution.Results) {
+			ae.log.Infof("⏩ Skipping step %s (conditions not met)", step.Name)
+			continue
+		}
+
+		ae.log.Infof("▶️ Executing step: %s (%s)", step.Name, step.Module)
+
+		// Get the plugin
+		plugin := GetPlugin(step.Module)
+		if plugin == nil {
+			ae.log.Warnf("⚠️ Module not found: %s", step.Module)
+			continue
+		}
+
+		// Merge chain options with step options
+		options := make(map[string]interface{})
+		for k, v := range execution.Chain.Options {
+			options[k] = v
+		}
+		for k, v := range step.Options {
+			options[k] = v
+		}
+		options["target"] = target
+
+		// Execute the module
+		result, err := plugin.Run(target, options)
+		if err != nil {
+			ae.log.Errorf("❌ Step %s failed: %v", step.Name, err)
+
+			// Handle failure - execute on_failure steps
+			if len(step.OnFailure) > 0 {
+				ae.log.Infof("🔄 Executing failure handlers for step %s", step.Name)
+				// TODO: Implement failure handler execution
+			}
+			continue
+		}
+
+		// Store result
+		execution.Results[step.Name] = result
+		execution.ExecutedSteps = append(execution.ExecutedSteps, step.Name)
+		ae.reportGen.AddModuleRun(step.Module)
+
+		// Process result for vulnerabilities
+		ae.processModuleResult(step.Module, result)
+
+		ae.log.Infof("✅ Step %s completed successfully", step.Name)
+
+		// Handle success - execute on_success steps if defined
+		if len(step.OnSuccess) > 0 {
+			ae.log.Infof("🎯 Triggering success handlers for step %s", step.Name)
+			// TODO: Implement dynamic step execution based on success handlers
+		}
+	}
+
+	return nil
+}
+
+// shouldExecuteStep checks if a step should be executed based on its conditions
+func (ae *AutomationEngine) shouldExecuteStep(step ChainStep, results map[string]interface{}) bool {
+	// If no conditions, always execute
+	if len(step.Conditions) == 0 {
+		return true
+	}
+
+	// Check all conditions (AND logic)
+	for _, condition := range step.Conditions {
+		if !ae.evaluateCondition(condition, results) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// evaluateCondition evaluates a single condition
+func (ae *AutomationEngine) evaluateCondition(condition ChainCondition, results map[string]interface{}) bool {
+	switch condition.Type {
+	case "result_contains":
+		// Check if any result contains the specified value
+		searchStr := fmt.Sprintf("%v", condition.Value)
+		for _, result := range results {
+			resultStr := fmt.Sprintf("%v", result)
+			if strings.Contains(strings.ToLower(resultStr), strings.ToLower(searchStr)) {
+				return true
+			}
+		}
+		return false
+
+	case "ports_found":
+		// Check if open ports were found
+		for _, result := range results {
+			if m, ok := result.(map[string]interface{}); ok {
+				if ports, ok := m["open_ports"]; ok && ports != nil {
+					return true
+				}
+			}
+		}
+		return false
+
+	case "vulns_found":
+		// Check if vulnerabilities were found
+		for _, result := range results {
+			if m, ok := result.(map[string]interface{}); ok {
+				if vulns, ok := m["vulnerabilities"]; ok && vulns != nil {
+					return true
+				}
+			}
+		}
+		return false
+
+	default:
+		ae.log.Warnf("Unknown condition type: %s", condition.Type)
+		return true
+	}
+}
+
+// LoadChains loads scan chains from a JSON/YAML file
+func (ae *AutomationEngine) LoadChains(filename string) error {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return fmt.Errorf("failed to read chains file: %w", err)
+	}
+
+	var chains []ScanChain
+	if err := json.Unmarshal(data, &chains); err != nil {
+		return fmt.Errorf("failed to parse chains JSON: %w", err)
+	}
+
+	ae.chains = chains
+	ae.log.Infof("Loaded %d scan chains from %s", len(chains), filename)
+	return nil
+}
+
+// SaveChains saves scan chains to a JSON file
+func (ae *AutomationEngine) SaveChains(filename string) error {
+	data, err := json.MarshalIndent(ae.chains, "", "    ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal chains: %w", err)
+	}
+
+	if err := os.WriteFile(filename, data, 0644); err != nil {
+		return fmt.Errorf("failed to write chains file: %w", err)
+	}
+
+	ae.log.Infof("Saved %d scan chains to %s", len(ae.chains), filename)
+	return nil
+}
+
+// CreateDefaultChains creates some default scan chains
+func (ae *AutomationEngine) CreateDefaultChains() {
+	// Smart reconnaissance chain
+	smartRecon := ScanChain{
+		Name:        "SmartRecon",
+		Description: "Intelligent reconnaissance with conditional execution",
+		Steps: []ChainStep{
+			{
+				Module:      "PortScan",
+				Name:        "initial_port_scan",
+				Description: "Initial port discovery",
+				Options:     map[string]interface{}{"ports": "1-1000"},
+				Conditions:  []ChainCondition{},
+			},
+			{
+				Module:      "ServiceVersionDetect",
+				Name:        "service_detection",
+				Description: "Service version detection on open ports",
+				Options:     map[string]interface{}{},
+				Conditions: []ChainCondition{
+					{Type: "ports_found", Value: true, Operator: "equals"},
+				},
+			},
+			{
+				Module:      "CVEScanner",
+				Name:        "vulnerability_scan",
+				Description: "CVE scanning on detected services",
+				Options:     map[string]interface{}{},
+				Conditions: []ChainCondition{
+					{Type: "result_contains", Value: "service", Operator: "contains"},
+				},
+			},
+		},
+		Options:    map[string]interface{}{},
+		OutputPath: "./reports",
+	}
+
+	// Web application chain
+	webAppChain := ScanChain{
+		Name:        "WebAppSecurity",
+		Description: "Web application security assessment chain",
+		Steps: []ChainStep{
+			{
+				Module:      "TechFingerprint",
+				Name:        "tech_detection",
+				Description: "Technology fingerprinting",
+				Options:     map[string]interface{}{},
+				Conditions:  []ChainCondition{},
+			},
+			{
+				Module:      "DirFuzzer",
+				Name:        "directory_fuzzing",
+				Description: "Directory and file discovery",
+				Options:     map[string]interface{}{},
+				Conditions: []ChainCondition{
+					{Type: "result_contains", Value: "web", Operator: "contains"},
+				},
+			},
+			{
+				Module:      "XSSScanner",
+				Name:        "xss_testing",
+				Description: "Cross-site scripting vulnerability testing",
+				Options:     map[string]interface{}{},
+				Conditions: []ChainCondition{
+					{Type: "result_contains", Value: "found", Operator: "contains"},
+				},
+			},
+			{
+				Module:      "SQLIScanner",
+				Name:        "sqli_testing",
+				Description: "SQL injection vulnerability testing",
+				Options:     map[string]interface{}{},
+				Conditions: []ChainCondition{
+					{Type: "result_contains", Value: "found", Operator: "contains"},
+				},
+			},
+		},
+		Options:    map[string]interface{}{},
+		OutputPath: "./reports",
+	}
+
+	ae.AddChain(smartRecon)
+	ae.AddChain(webAppChain)
 }

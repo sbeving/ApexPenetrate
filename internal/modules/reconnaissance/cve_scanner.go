@@ -217,6 +217,71 @@ func (p *cveScannerPlugin) Options() []core.ModuleOption {
 		{Name: "version", Type: "string", Default: "", Description: "Service version (e.g., 2.4.41, 1.18.0)", Required: true},
 	}
 }
+func (p *cveScannerPlugin) Help() string {
+	return `
+🔍 CVEScanner Module - Known Vulnerability Database Scanner
+
+📋 DESCRIPTION:
+   Searches for known Common Vulnerabilities and Exposures (CVEs) based on
+   service names and versions. Integrates with multiple vulnerability databases
+   to provide comprehensive coverage of known security issues.
+
+🎯 USAGE:
+   apex> use CVEScanner
+   apex> set service apache
+   apex> set version 2.4.41
+   apex> run
+
+📊 EXAMPLES:
+   • Web Servers:
+     service=apache version=2.4.41
+     service=nginx version=1.18.0
+   
+   • Database Systems:
+     service=mysql version=8.0.25
+     service=postgresql version=13.3
+   
+   • SSH Services:
+     service=openssh version=7.4
+   
+   • Application Servers:
+     service=tomcat version=9.0.45
+
+⚙️ OPTIONS:
+   service  [REQUIRED] - Target service name (case-insensitive)
+   version  [REQUIRED] - Exact or partial version string
+
+🔧 DATA SOURCES:
+   • National Vulnerability Database (NVD)
+   • CVE.org official database
+   • MITRE CVE list
+   • Vendor-specific advisories
+
+📈 OUTPUT:
+   • CVE ID and CVSS score
+   • Vulnerability severity (CRITICAL/HIGH/MEDIUM/LOW)  
+   • Publication date and summary
+   • Exploit availability indicators
+   • Remediation recommendations
+
+💡 PRO TIPS:
+   → Use exact version numbers for accurate results
+   → Check for both service and library CVEs (e.g., Log4j)
+   → Combine with ServiceVersionDetect for automated scanning
+   → Review high-severity CVEs immediately
+   → Consider version ranges for comprehensive assessment
+
+🚨 RISK LEVELS:
+   🔴 CRITICAL (CVSS 9.0-10.0) - Immediate patching required
+   🟠 HIGH (CVSS 7.0-8.9) - Priority patching within days
+   🟡 MEDIUM (CVSS 4.0-6.9) - Standard patching cycle
+   🟢 LOW (CVSS 0.1-3.9) - Monitor and plan updates
+
+⚡ AUTOMATION:
+   Perfect for CI/CD pipeline integration and continuous vulnerability monitoring.
+   Chain with port scanning for automated infrastructure assessment.
+`
+}
 func (p *cveScannerPlugin) Run(target string, options map[string]interface{}) (interface{}, error) {
 	service := ""
 	version := ""

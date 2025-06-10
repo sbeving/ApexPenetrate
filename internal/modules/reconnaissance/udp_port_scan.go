@@ -97,6 +97,42 @@ func (p *udpPortScannerPlugin) Options() []core.ModuleOption {
 		{Name: "timeout", Type: "string", Default: "2s", Description: "Timeout per port (e.g. 1s, 500ms)", Required: false},
 	}
 }
+func (p *udpPortScannerPlugin) Help() string {
+	return `
+📡 UDP Port Scanner - UDP Service Discovery
+
+DESCRIPTION:
+  Scans UDP ports to discover services that don't respond to TCP connections.
+  Essential for finding DNS, SNMP, DHCP and other UDP-based services.
+
+USAGE:
+  udpportscan <target_ip> [options]
+
+OPTIONS:
+  ports   - Comma-separated UDP port list (default: common UDP ports)
+  timeout - Response timeout per port (default: 2s)
+
+EXAMPLES:
+  udpportscan 192.168.1.1
+  udpportscan dns.server.com --ports 53,853
+  udpportscan 10.0.0.1 --timeout 5s
+
+COMMON UDP SERVICES:
+  • DNS (53): Domain name resolution
+  • DHCP (67,68): Dynamic host configuration
+  • TFTP (69): Trivial file transfer
+  • NTP (123): Network time protocol
+  • SNMP (161): Simple network management
+
+PRO TIPS:
+  💡 UDP scanning is slower and less reliable than TCP
+  💡 Look for SNMP (161) for network device management
+  💡 Check for NTP (123) for time-based attacks
+  💡 DNS (53) can reveal internal network information
+
+RISK LEVEL: Low to Medium (service discovery for targeted attacks)
+`
+}
 
 func init() {
 	core.RegisterPlugin(&udpPortScannerPlugin{})

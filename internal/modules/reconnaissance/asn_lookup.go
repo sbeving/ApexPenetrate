@@ -75,6 +75,55 @@ func (p *asnLookupPlugin) Options() []core.ModuleOption {
 	}
 }
 
+func (p *asnLookupPlugin) Help() string {
+	return `
+🌐 ASN Lookup - Autonomous System Number Intelligence Gathering
+
+DESCRIPTION:
+  Performs ASN (Autonomous System Number) lookups to identify network ownership,
+  IP ranges, and related infrastructure for comprehensive network reconnaissance.
+
+USAGE:
+  asnlookup <target_ip_or_domain> [options]
+
+OPTIONS:
+  format - Output format: text or json (default: text)
+
+EXAMPLES:
+  asnlookup 8.8.8.8
+  asnlookup google.com --format json
+  asnlookup 192.168.1.1 --format text
+
+INTELLIGENCE GATHERED:
+  • ASN Number: Unique identifier for the autonomous system
+  • Organization: Company/entity that owns the network
+  • IP Ranges: CIDR blocks assigned to the ASN
+  • Country: Geographic location of the network
+  • Registry: Regional Internet Registry (ARIN, RIPE, etc.)
+
+ATTACK SCENARIOS:
+  • Network Mapping: Identify all IP ranges owned by target
+  • Infrastructure Discovery: Find related services and subsidiaries
+  • Attack Surface: Enumerate additional targets within same ASN
+  • Pivot Points: Discover connected networks and partners
+
+PRO TIPS:
+  💡 Use ASN data to find all IP ranges owned by target organization
+  💡 Cross-reference with subdomain enumeration for complete coverage
+  💡 Check for cloud provider ASNs (AWS, Azure, GCP) for cloud assets
+  💡 Look for multiple ASNs indicating distributed infrastructure
+  💡 Combine with reverse IP lookup for comprehensive mapping
+
+DATA SOURCES:
+  • Team Cymru IP to ASN mapping
+  • Regional Internet Registries (RIRs)
+  • BGP routing tables
+  • WHOIS databases
+
+RISK LEVEL: Low (reconnaissance/intelligence gathering)
+`
+}
+
 func init() {
 	core.RegisterPlugin(&asnLookupPlugin{})
 }

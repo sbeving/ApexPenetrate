@@ -121,6 +121,63 @@ func (p *dirFuzzerPlugin) Run(target string, options map[string]interface{}) (in
 	return DirFuzzer(target, config), nil
 }
 
+func (p *dirFuzzerPlugin) Help() string {
+	return `
+📁 Directory Fuzzer - Hidden Directory & File Discovery Tool
+
+DESCRIPTION:
+  Discovers hidden directories and files by fuzzing common paths and filenames.
+  Essential for finding admin panels, backup files, and sensitive directories.
+
+USAGE:
+  dirfuzzer <target_url> [options]
+
+OPTIONS:
+  wordlist  - Comma-separated list of directories/files to test
+  threads   - Number of concurrent requests (default: 10)
+  timeout   - Request timeout (e.g., "5s", "10s")
+
+EXAMPLES:
+  dirfuzzer https://example.com
+  dirfuzzer https://example.com --wordlist admin,backup,test
+  dirfuzzer https://example.com --threads 20 --timeout 5s
+
+COMMON TARGETS:
+  • Admin Panels: admin, administrator, panel, control
+  • Backup Files: backup, old, bak, temp, archive
+  • Config Files: config, conf, settings, env
+  • Development: dev, test, staging, debug
+  • Documentation: docs, documentation, help, manual
+
+ATTACK SCENARIOS:
+  • Admin Interface Discovery: Find hidden admin panels
+  • Backup File Access: Locate exposed backup files with credentials
+  • Source Code Leaks: Discover development/staging environments
+  • Configuration Exposure: Find config files with sensitive data
+
+EVASION TECHNIQUES:
+  • Use random User-Agent headers
+  • Implement request delays to avoid rate limiting
+  • Try different HTTP methods (GET, POST, HEAD)
+  • Test with various file extensions (.php, .asp, .jsp)
+
+PRO TIPS:
+  💡 Check response sizes - small differences may indicate valid paths
+  💡 Look for different HTTP status codes (403 vs 404)
+  💡 Test common CMS paths (/wp-admin, /admin, /administrator)
+  💡 Try file extensions based on detected technology stack
+  💡 Use wordlists specific to discovered technologies
+  💡 Check for directory listing vulnerabilities (200 with index content)
+
+WORDLIST RECOMMENDATIONS:
+  • SecLists: Common-Web-Content-Discovery
+  • DirBuster wordlists
+  • Custom wordlists based on target technology
+
+RISK LEVEL: Medium to High (sensitive data exposure)
+`
+}
+
 func init() {
 	core.RegisterPlugin(&dirFuzzerPlugin{})
 }

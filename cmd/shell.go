@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/spf13/cobra"
 
@@ -19,9 +20,14 @@ import (
 type ShellContext struct {
 	CurrentModule core.Plugin
 	Options       map[string]interface{}
+	Results       map[string]interface{} // Store last results for recommendations
 }
 
-var shellCtx = &ShellContext{Options: map[string]interface{}{}}
+var (
+	shellCtx          = &ShellContext{Options: map[string]interface{}{}, Results: map[string]interface{}{}}
+	dashboardStopChan chan struct{}
+	dashboardOnce     sync.Once
+)
 
 func StartShell() {
 	reader := bufio.NewReader(os.Stdin)
@@ -155,11 +161,31 @@ func StartShell() {
 			}
 
 			fmt.Printf("Running %s against %s...\n", shellCtx.CurrentModule.Name(), target)
+			// Start dashboard if not running
+			dashboardOnce.Do(func() {
+				dashboardStopChan = make(chan struct{})
+				go core.StartLiveDashboard(dashboardStopChan)
+			})
+			// Update dashboard: increment running
+			core.UpdateDashboard(1, 0, 0, 0) // Running 1 module, completed 0 for now
 			res, err := shellCtx.CurrentModule.Run(target, shellCtx.Options)
+			// Update dashboard: module completed
+			core.UpdateDashboard(0, 1, extractOpenPorts(res), extractVulnsFound(res))
+			if dashboardStopChan != nil {
+				close(dashboardStopChan)
+				dashboardOnce = sync.Once{} // Reset for next run
+			}
 			if err != nil {
 				fmt.Printf("Error: %v\n", err)
 			} else {
 				fmt.Printf("Result: %v\n", res)
+				// Save result for recommendations
+				if shellCtx.Results == nil {
+					shellCtx.Results = map[string]interface{}{}
+				}
+				shellCtx.Results[shellCtx.CurrentModule.Name()] = res
+				// Call recommendations after run
+				SuggestNextModules(shellCtx.Results)
 			}
 		case "back":
 			shellCtx.CurrentModule = nil
@@ -194,10 +220,301 @@ func StartShell() {
 			} else {
 				fmt.Println("Usage: show options")
 			}
+		case "suggest":
+			SuggestNextModules(shellCtx.Results)
+			continue
+		case "help":
+			if len(args) < 2 {
+				fmt.Println("Usage: help <module>")
+				fmt.Println("Available modules:")
+				for _, p := range core.ListPlugins() {
+					fmt.Printf("  %-20s - %s\n", p.Name(), p.Description())
+				}
+				continue
+			}
+			moduleName := args[1]
+			found := false
+			for _, p := range core.ListPlugins() {
+				if strings.EqualFold(p.Name(), moduleName) {
+					fmt.Println(p.Help())
+					found = true
+					break
+				}
+			}
+			if !found {
+				fmt.Printf("Module '%s' not found.\n", moduleName)
+			}
+			continue
+		case "chain":
+			handleChainCommand(args, reader)
+			continue
 		default:
-			fmt.Println("Unknown command. Try: search, use, set, info, show options, run, back, exit")
+			fmt.Println("Unknown command. Try: search, use, set, info, show options, run, back, chain, suggest, help, exit")
 		}
 	}
+}
+
+// handleChainCommand handles chain-related commands
+func handleChainCommand(args []string, reader *bufio.Reader) {
+	if len(args) < 2 {
+		fmt.Println("Usage: chain <subcommand>")
+		fmt.Println("Subcommands:")
+		fmt.Println("  list                 - List available chains")
+		fmt.Println("  create <name>        - Interactively create a new chain")
+		fmt.Println("  run <name> <target>  - Execute a chain")
+		fmt.Println("  load <file>          - Load chains from JSON file")
+		fmt.Println("  save <file>          - Save chains to JSON file")
+		return
+	}
+
+	automationEngine := core.NewAutomationEngine()
+	automationEngine.CreateDefaultChains()
+
+	switch args[1] {
+	case "list":
+		chains := automationEngine.ListChains()
+		if len(chains) == 0 {
+			fmt.Println("No chains available. Use 'chain create <name>' to create one.")
+			return
+		}
+		fmt.Println("\n🔗 Available Scan Chains:")
+		for _, chain := range chains {
+			fmt.Printf("  %-20s %s (%d steps)\n", chain.Name, chain.Description, len(chain.Steps))
+		}
+
+	case "create":
+		if len(args) < 3 {
+			fmt.Println("Usage: chain create <name>")
+			return
+		}
+		createInteractiveChain(args[2], reader, automationEngine)
+
+	case "run":
+		if len(args) < 4 {
+			fmt.Println("Usage: chain run <name> <target>")
+			return
+		}
+		chainName := args[2]
+		target := args[3]
+		fmt.Printf("🚀 Executing chain '%s' on target '%s'...\n", chainName, target)
+
+		execution, err := automationEngine.ExecuteChain(chainName, target)
+		if err != nil {
+			fmt.Printf("❌ Chain execution failed: %v\n", err)
+			return
+		}
+
+		fmt.Printf("✅ Chain execution completed in %v\n", execution.EndTime.Sub(execution.StartTime))
+		fmt.Printf("📊 Executed %d steps: %s\n", len(execution.ExecutedSteps), strings.Join(execution.ExecutedSteps, ", "))
+
+	case "load":
+		if len(args) < 3 {
+			fmt.Println("Usage: chain load <file>")
+			return
+		}
+		err := automationEngine.LoadChains(args[2])
+		if err != nil {
+			fmt.Printf("❌ Failed to load chains: %v\n", err)
+		} else {
+			fmt.Printf("✅ Chains loaded from %s\n", args[2])
+		}
+
+	case "save":
+		if len(args) < 3 {
+			fmt.Println("Usage: chain save <file>")
+			return
+		}
+		err := automationEngine.SaveChains(args[2])
+		if err != nil {
+			fmt.Printf("❌ Failed to save chains: %v\n", err)
+		} else {
+			fmt.Printf("✅ Chains saved to %s\n", args[2])
+		}
+
+	default:
+		fmt.Printf("Unknown chain subcommand: %s\n", args[1])
+	}
+}
+
+// createInteractiveChain creates a scan chain interactively
+func createInteractiveChain(name string, reader *bufio.Reader, automationEngine *core.AutomationEngine) {
+	fmt.Printf("🔗 Creating scan chain: %s\n", name)
+
+	fmt.Print("Description: ")
+	description, _ := reader.ReadString('\n')
+	description = strings.TrimSpace(description)
+
+	fmt.Print("Output path (default: ./reports): ")
+	outputPath, _ := reader.ReadString('\n')
+	outputPath = strings.TrimSpace(outputPath)
+	if outputPath == "" {
+		outputPath = "./reports"
+	}
+
+	chain := core.ScanChain{
+		Name:        name,
+		Description: description,
+		Steps:       []core.ChainStep{},
+		Options:     map[string]interface{}{},
+		OutputPath:  outputPath,
+	}
+
+	// Add steps interactively
+	for {
+		fmt.Print("\nAdd a step? (y/n): ")
+		choice, _ := reader.ReadString('\n')
+		choice = strings.TrimSpace(strings.ToLower(choice))
+
+		if choice != "y" && choice != "yes" {
+			break
+		}
+
+		step := createInteractiveStep(reader)
+		chain.Steps = append(chain.Steps, step)
+		fmt.Printf("✅ Added step: %s\n", step.Name)
+	}
+
+	automationEngine.AddChain(chain)
+	fmt.Printf("✅ Chain '%s' created with %d steps!\n", name, len(chain.Steps))
+}
+
+// createInteractiveStep creates a chain step interactively
+func createInteractiveStep(reader *bufio.Reader) core.ChainStep {
+	fmt.Print("Step name: ")
+	name, _ := reader.ReadString('\n')
+	name = strings.TrimSpace(name)
+
+	fmt.Print("Module name: ")
+	module, _ := reader.ReadString('\n')
+	module = strings.TrimSpace(module)
+
+	fmt.Print("Description: ")
+	description, _ := reader.ReadString('\n')
+	description = strings.TrimSpace(description)
+
+	step := core.ChainStep{
+		Module:      module,
+		Name:        name,
+		Description: description,
+		Options:     map[string]interface{}{},
+		Conditions:  []core.ChainCondition{},
+		OnSuccess:   []string{},
+		OnFailure:   []string{},
+	}
+
+	// Add conditions
+	fmt.Print("Add conditions? (y/n): ")
+	choice, _ := reader.ReadString('\n')
+	choice = strings.TrimSpace(strings.ToLower(choice))
+
+	if choice == "y" || choice == "yes" {
+		fmt.Println("Available condition types:")
+		fmt.Println("  1. result_contains - Execute if previous results contain text")
+		fmt.Println("  2. ports_found - Execute if open ports were found")
+		fmt.Println("  3. vulns_found - Execute if vulnerabilities were found")
+
+		fmt.Print("Choose condition type (1-3): ")
+		condChoice, _ := reader.ReadString('\n')
+		condChoice = strings.TrimSpace(condChoice)
+
+		var condition core.ChainCondition
+		switch condChoice {
+		case "1":
+			condition.Type = "result_contains"
+			fmt.Print("Text to search for: ")
+			value, _ := reader.ReadString('\n')
+			condition.Value = strings.TrimSpace(value)
+			condition.Operator = "contains"
+		case "2":
+			condition.Type = "ports_found"
+			condition.Value = true
+			condition.Operator = "equals"
+		case "3":
+			condition.Type = "vulns_found"
+			condition.Value = true
+			condition.Operator = "equals"
+		}
+
+		if condition.Type != "" {
+			step.Conditions = append(step.Conditions, condition)
+		}
+	}
+
+	return step
+}
+
+// SuggestNextModules analyzes results and prints recommended next modules
+func SuggestNextModules(result interface{}) {
+	fmt.Println("\n🤖 AI-Powered Module Recommendations:")
+	recommended := map[string]bool{}
+
+	// 1. If open ports found
+	if ports, ok := result.(map[string]interface{})["open_ports"]; ok && ports != nil {
+		fmt.Println("  🔎 Detected open ports. Recommended next modules:")
+		fmt.Println("    - ServiceVersionDetect (banner grabbing)")
+		recommended["ServiceVersionDetect"] = true
+		fmt.Println("    - CVEScanner (vulnerability scan)")
+		recommended["CVEScanner"] = true
+		fmt.Println("    - Web Vulns (XSS, SQLi, CORS, DirFuzzer)")
+		recommended["XSSScanner"] = true
+		recommended["SQLIScanner"] = true
+		recommended["CORSTester"] = true
+		recommended["DirFuzzer"] = true
+	}
+	// 2. If subdomains found
+	if subdomains, ok := result.(map[string]interface{})["subdomains"]; ok && subdomains != nil {
+		fmt.Println("  🌐 Subdomains found. Try:")
+		fmt.Println("    - DNSRecon, HTTPRecon, DirFuzzer")
+		recommended["DNSRecon"] = true
+		recommended["HTTPRecon"] = true
+		recommended["DirFuzzer"] = true
+	}
+	// 3. If tech fingerprint found
+	if tech, ok := result.(map[string]interface{})["tech_fingerprint"]; ok && tech != nil {
+		fmt.Println("  🧬 Technologies detected. Try:")
+		fmt.Println("    - XSSScanner, SQLIScanner, CORSTester, OpenRedirect")
+		recommended["XSSScanner"] = true
+		recommended["SQLIScanner"] = true
+		recommended["CORSTester"] = true
+		recommended["OpenRedirect"] = true
+	}
+	// 4. If vulnerabilities found
+	if vulns, ok := result.(map[string]interface{})["vulnerabilities"]; ok && vulns != nil {
+		fmt.Println("  🚨 Vulnerabilities detected. Next steps:")
+		fmt.Println("    - Generate report (report)")
+		fmt.Println("    - Try exploit or playground modules")
+		recommended["report"] = true
+		recommended["playground"] = true
+	}
+	if len(recommended) == 0 {
+		fmt.Println("  🤔 No specific recommendations. Try running a recon or port scan module first!")
+	}
+}
+
+// Helpers to extract stats for dashboard
+func extractOpenPorts(res interface{}) int {
+	if m, ok := res.(map[string]interface{}); ok {
+		if ports, ok := m["open_ports"]; ok {
+			if arr, ok := ports.([]int); ok {
+				return len(arr)
+			}
+			if arr, ok := ports.([]interface{}); ok {
+				return len(arr)
+			}
+		}
+	}
+	return 0
+}
+
+func extractVulnsFound(res interface{}) int {
+	if m, ok := res.(map[string]interface{}); ok {
+		if vulns, ok := m["vulnerabilities"]; ok {
+			if arr, ok := vulns.([]interface{}); ok {
+				return len(arr)
+			}
+		}
+	}
+	return 0
 }
 
 func init() {

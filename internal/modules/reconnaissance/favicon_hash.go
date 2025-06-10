@@ -116,6 +116,67 @@ func (p *faviconHashPlugin) Options() []core.ModuleOption {
 		{Name: "timeout", Type: "string", Default: "8s", Description: "HTTP request timeout", Required: false},
 	}
 }
+func (p *faviconHashPlugin) Help() string {
+	return `
+🖼️ Favicon Hash - Technology Fingerprinting via Favicon Analysis
+
+DESCRIPTION:
+  Calculates favicon hash to identify web technologies, frameworks, and applications
+  based on their unique favicon signatures. Useful for passive reconnaissance.
+
+USAGE:
+  faviconhash <target_url> [options]
+
+OPTIONS:
+  timeout - HTTP request timeout (default: 8s)
+
+EXAMPLES:
+  faviconhash https://example.com
+  faviconhash https://admin.example.com --timeout 10s
+  faviconhash http://192.168.1.1:8080
+
+TECHNOLOGY IDENTIFICATION:
+  • Web Frameworks: Django, Rails, Spring, etc.
+  • CMS Systems: WordPress, Drupal, Joomla
+  • Applications: Jenkins, GitLab, Confluence
+  • Network Devices: Routers, firewalls, switches
+  • Development Tools: phpMyAdmin, Adminer
+
+ATTACK SCENARIOS:
+  • Technology Stack Discovery: Identify backend technologies
+  • Default Installation Detection: Find unmodified installations
+  • Version Fingerprinting: Narrow down specific versions
+  • Attack Vector Selection: Choose exploits based on technology
+
+HASH DATABASES:
+  • Shodan Favicon Database
+  • Custom Hash Collections
+  • Open Source Signatures
+  • Community Contributed Hashes
+
+PRO TIPS:
+  💡 Combine with other fingerprinting techniques for accuracy
+  💡 Check multiple paths (/favicon.ico, /images/favicon.ico)
+  💡 Look for custom favicons indicating specific applications
+  💡 Cross-reference hashes with Shodan search results
+  💡 Check favicon changes over time for version updates
+
+PASSIVE RECONNAISSANCE:
+  • No direct interaction with application logic
+  • Low detection risk
+  • Works even with basic access restrictions
+  • Can identify hidden admin panels
+
+COMMON FAVICON PATHS:
+  • /favicon.ico (standard location)
+  • /images/favicon.ico
+  • /static/favicon.ico
+  • /assets/favicon.ico
+  • Custom paths in HTML head tags
+
+RISK LEVEL: Low (passive information gathering)
+`
+}
 
 func init() {
 	core.RegisterPlugin(&faviconHashPlugin{})

@@ -17,7 +17,8 @@ type Plugin interface {
 	Description() string
 	Run(target string, options map[string]interface{}) (interface{}, error)
 	Category() string        // e.g. "recon", "web", "network"
-	Options() []ModuleOption // <-- new method for parametric modules
+	Options() []ModuleOption // configurable options for the module
+	Help() string            // detailed help and usage examples
 }
 
 var (

@@ -1,0 +1,177 @@
+[
+    {
+        "name": "SmartRecon",
+        "description": "Intelligent reconnaissance with conditional execution",
+        "steps": [
+            {
+                "module": "PortScan",
+                "name": "initial_port_scan",
+                "description": "Initial port discovery",
+                "options": {
+                    "ports": "1-1000"
+                },
+                "conditions": [],
+                "on_success": ["service_detection"],
+                "on_failure": []
+            },
+            {
+                "module": "ServiceVersionDetect",
+                "name": "service_detection",
+                "description": "Service version detection on open ports",
+                "options": {},
+                "conditions": [
+                    {
+                        "type": "ports_found",
+                        "value": true,
+                        "operator": "equals"
+                    }
+                ],
+                "on_success": ["vulnerability_scan"],
+                "on_failure": []
+            },
+            {
+                "module": "CVEScanner",
+                "name": "vulnerability_scan",
+                "description": "CVE scanning on detected services",
+                "options": {},
+                "conditions": [
+                    {
+                        "type": "result_contains",
+                        "value": "service",
+                        "operator": "contains"
+                    }
+                ],
+                "on_success": [],
+                "on_failure": []
+            }
+        ],
+        "options": {},
+        "output_path": "./reports"
+    },
+    {
+        "name": "WebAppSecurity",
+        "description": "Web application security assessment chain",
+        "steps": [
+            {
+                "module": "TechFingerprint",
+                "name": "tech_detection",
+                "description": "Technology fingerprinting",
+                "options": {},
+                "conditions": [],
+                "on_success": ["directory_fuzzing"],
+                "on_failure": []
+            },
+            {
+                "module": "DirFuzzer",
+                "name": "directory_fuzzing",
+                "description": "Directory and file discovery",
+                "options": {},
+                "conditions": [
+                    {
+                        "type": "result_contains",
+                        "value": "web",
+                        "operator": "contains"
+                    }
+                ],
+                "on_success": ["xss_testing", "sqli_testing"],
+                "on_failure": []
+            },
+            {
+                "module": "XSSScanner",
+                "name": "xss_testing",
+                "description": "Cross-site scripting vulnerability testing",
+                "options": {},
+                "conditions": [
+                    {
+                        "type": "result_contains",
+                        "value": "found",
+                        "operator": "contains"
+                    }
+                ],
+                "on_success": [],
+                "on_failure": []
+            },
+            {
+                "module": "SQLIScanner",
+                "name": "sqli_testing",
+                "description": "SQL injection vulnerability testing",
+                "options": {},
+                "conditions": [
+                    {
+                        "type": "result_contains",
+                        "value": "found",
+                        "operator": "contains"
+                    }
+                ],
+                "on_success": [],
+                "on_failure": []
+            }
+        ],
+        "options": {},
+        "output_path": "./reports"
+    },
+    {
+        "name": "NetworkDiscovery",
+        "description": "Network-focused discovery and enumeration",
+        "steps": [
+            {
+                "module": "PortScan",
+                "name": "full_port_scan",
+                "description": "Comprehensive port scan",
+                "options": {
+                    "ports": "1-65535"
+                },
+                "conditions": [],
+                "on_success": ["service_detection", "os_detection"],
+                "on_failure": []
+            },
+            {
+                "module": "OSDetection",
+                "name": "os_detection",
+                "description": "Operating system detection",
+                "options": {},
+                "conditions": [
+                    {
+                        "type": "ports_found",
+                        "value": true,
+                        "operator": "equals"
+                    }
+                ],
+                "on_success": [],
+                "on_failure": []
+            },
+            {
+                "module": "ServiceVersionDetect",
+                "name": "service_detection",
+                "description": "Detailed service enumeration",
+                "options": {},
+                "conditions": [
+                    {
+                        "type": "ports_found",
+                        "value": true,
+                        "operator": "equals"
+                    }
+                ],
+                "on_success": ["vulnerability_assessment"],
+                "on_failure": []
+            },
+            {
+                "module": "CVEScanner",
+                "name": "vulnerability_assessment",
+                "description": "Known vulnerability assessment",
+                "options": {},
+                "conditions": [
+                    {
+                        "type": "result_contains",
+                        "value": "version",
+                        "operator": "contains"
+                    }
+                ],
+                "on_success": [],
+                "on_failure": []
+            }
+        ],
+        "options": {},
+        "output_path": "./reports"
+    }
+]

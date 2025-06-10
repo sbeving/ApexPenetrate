@@ -70,15 +70,87 @@ func (p *xssScannerPlugin) Options() []core.ModuleOption {
 		{Name: "payload", Type: "string", Default: "<script>alert('xss')</script>", Description: "Payload to inject for XSS testing", Required: false},
 	}
 }
+func (p *xssScannerPlugin) Help() string {
+	return `
+🔍 XSSScanner Module - Cross-Site Scripting Vulnerability Scanner
+
+📋 DESCRIPTION:
+   Advanced Cross-Site Scripting (XSS) vulnerability scanner that tests for
+   reflected, stored, and DOM-based XSS vulnerabilities using sophisticated
+   payload techniques and context-aware detection.
+
+🎯 USAGE:
+   apex> use XSSScanner
+   apex> set target http://example.com/search
+   apex> set payload <script>alert('XSS')</script>
+   apex> run
+
+📊 EXAMPLES:
+   • Basic Reflected XSS:
+     target=http://example.com/search?q=test
+   
+   • Custom Payload Testing:
+     payload=<img src=x onerror=alert(1)>
+     payload=javascript:alert('XSS')
+     payload=<svg onload=alert('XSS')>
+   
+   • Form Parameter Testing:
+     Test POST forms and input fields
+   
+   • URL Parameter Injection:
+     Automatically tests GET parameters
+
+⚙️ OPTIONS:
+   payload  [OPTIONAL] - Custom XSS payload (default: <script>alert('xss')</script>)
+   
+🔧 ATTACK VECTORS:
+   • HTML Context: <script>, <img>, <svg>, <iframe>
+   • Attribute Context: event handlers, href, src
+   • JavaScript Context: string breakouts
+   • CSS Context: expression(), behavior
+   • URL Context: javascript:, data: schemes
+
+📈 DETECTION METHODS:
+   • Response content analysis
+   • Payload reflection detection
+   • Context-aware validation
+   • DOM manipulation testing
+   • Error-based identification
+
+💡 PRO TIPS:
+   → Test multiple encoding types (URL, HTML, JS)
+   → Check both GET and POST parameters
+   → Look for reflected content in headers
+   → Test file upload functionality
+   → Combine with DirFuzzer for comprehensive coverage
+   → Use varied payloads to bypass filters
+
+🚨 SEVERITY LEVELS:
+   🔴 CRITICAL - Stored XSS with admin access
+   🟠 HIGH - Reflected XSS in sensitive areas
+   🟡 MEDIUM - Standard reflected XSS
+   🟢 LOW - Self-XSS or limited impact
+
+⚡ BYPASS TECHNIQUES:
+   • Filter evasion with encoding
+   • Tag variation and obfuscation
+   • Event handler alternatives
+   • Protocol handler abuse
+   • Template injection vectors
+
+🔗 INTEGRATION:
+   Perfect for web application assessments. Chain with directory
+   fuzzing and parameter discovery for maximum coverage.
+`
+}
+
 func (p *xssScannerPlugin) Run(target string, options map[string]interface{}) (interface{}, error) {
-	payload := "<script>alert('xss')</script>"
-	if val, ok := options["payload"]; ok {
-		if s, ok := val.(string); ok && s != "" {
-			payload = s
-		}
-	}
 	scanner := NewXSSScanner(target)
-	scanner.payload = payload
+	
+	if payload, ok := options["payload"].(string); ok && payload != "" {
+		scanner.payload = payload
+	}
+	
 	return scanner.ScanXSS(), nil
 }
 

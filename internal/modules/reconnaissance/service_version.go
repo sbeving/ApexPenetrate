@@ -138,6 +138,43 @@ func (p *serviceVersionPlugin) Options() []core.ModuleOption {
 	}
 }
 
+func (p *serviceVersionPlugin) Help() string {
+	return `
+🔧 Service Version Scanner - Service Fingerprinting & Banner Grabbing
+
+DESCRIPTION:
+  Identifies service versions running on open ports through banner grabbing
+  and protocol-specific probes for accurate vulnerability assessment.
+
+USAGE:
+  serviceversion <target_ip> [options]
+
+OPTIONS:
+  ports   - Comma-separated port list (default: common ports)
+  timeout - Connection timeout per port (default: 2s)
+
+EXAMPLES:
+  serviceversion 192.168.1.1
+  serviceversion target.com --ports 80,443,22,21
+  serviceversion 10.0.0.1 --timeout 5s
+
+DETECTION METHODS:
+  • Banner Grabbing: Extract service welcome messages
+  • Protocol Probes: Send protocol-specific requests
+  • Application Fingerprinting: Identify web applications
+  • Version Pattern Matching: Parse version from responses
+
+PRO TIPS:
+  💡 Use discovered versions to search for specific exploits
+  💡 Check for outdated software versions with known vulnerabilities
+  💡 Look for default configurations and credentials
+  💡 Combine with CVE scanning for comprehensive assessment
+  💡 Note service differences between expected and actual versions
+
+RISK LEVEL: Low (reconnaissance for vulnerability identification)
+`
+}
+
 func init() {
 	core.RegisterPlugin(&serviceVersionPlugin{})
 }

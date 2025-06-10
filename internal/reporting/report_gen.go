@@ -13,6 +13,21 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// ChartData represents data for Chart.js visualizations
+type ChartData struct {
+	Labels   []string  `json:"labels"`
+	Datasets []Dataset `json:"datasets"`
+}
+
+// Dataset represents a dataset for Chart.js
+type Dataset struct {
+	Label           string    `json:"label"`
+	Data            []float64 `json:"data"`
+	BackgroundColor []string  `json:"backgroundColor"`
+	BorderColor     []string  `json:"borderColor"`
+	BorderWidth     int       `json:"borderWidth"`
+}
+
 // Vulnerability represents a security finding
 type Vulnerability struct {
 	ID          string    `json:"id"`
@@ -101,7 +116,7 @@ func (r *ReportGenerator) calculateStatistics() {
 	stats.ModulesRun = len(r.scanResult.ModulesRun)
 
 	for _, vuln := range r.scanResult.Vulnerabilities {
-		switch strings.ToUpper(vuln.Severity) {
+		switch vuln.Severity {
 		case "HIGH":
 			stats.HighSeverity++
 		case "MEDIUM":
@@ -112,27 +127,22 @@ func (r *ReportGenerator) calculateStatistics() {
 	}
 }
 
-// calculateRiskScore computes overall risk score based on vulnerabilities
+// calculateRiskScore computes an overall risk score based on vulnerabilities
 func (r *ReportGenerator) calculateRiskScore() {
 	if len(r.scanResult.Vulnerabilities) == 0 {
-		r.scanResult.RiskScore = 0.0
+		r.scanResult.RiskScore = 0
 		return
 	}
 
-	var totalScore float64
+	totalScore := 0.0
 	for _, vuln := range r.scanResult.Vulnerabilities {
-		switch strings.ToUpper(vuln.Severity) {
+		switch vuln.Severity {
 		case "HIGH":
-			totalScore += 10.0
-		case "MEDIUM":
-			totalScore += 5.0
-		case "LOW":
-			totalScore += 1.0
-		}
-
-		// Add CVSS score if available
-		if vuln.CVSS > 0 {
 			totalScore += vuln.CVSS
+		case "MEDIUM":
+			totalScore += vuln.CVSS * 0.7
+		case "LOW":
+			totalScore += vuln.CVSS * 0.3
 		}
 	}
 
@@ -143,9 +153,9 @@ func (r *ReportGenerator) calculateRiskScore() {
 	}
 }
 
-// GenerateHTMLReport generates a comprehensive HTML report
+// GenerateHTMLReport generates a comprehensive HTML report with interactive charts
 func (r *ReportGenerator) GenerateHTMLReport(outputPath string) error {
-	r.log.Infof("Generating HTML report for target %s and saving to %s...", r.scanResult.Target, outputPath)
+	r.log.Infof("Generating enhanced HTML report with charts for target %s and saving to %s...", r.scanResult.Target, outputPath)
 
 	// Sort vulnerabilities by severity
 	sortedVulns := make([]Vulnerability, len(r.scanResult.Vulnerabilities))
@@ -155,7 +165,7 @@ func (r *ReportGenerator) GenerateHTMLReport(outputPath string) error {
 		return severityOrder[sortedVulns[i].Severity] > severityOrder[sortedVulns[j].Severity]
 	})
 
-	htmlContent := r.generateHTMLContent(sortedVulns)
+	htmlContent := r.generateEnhancedHTMLContent(sortedVulns)
 
 	err := os.WriteFile(outputPath, []byte(htmlContent), 0644)
 	if err != nil {
@@ -163,7 +173,7 @@ func (r *ReportGenerator) GenerateHTMLReport(outputPath string) error {
 		return fmt.Errorf("failed to write HTML report: %w", err)
 	}
 
-	r.log.Info("HTML report generated successfully.")
+	r.log.Info("Enhanced HTML report with interactive charts generated successfully.")
 	return nil
 }
 
@@ -401,59 +411,65 @@ func (r *ReportGenerator) getRiskColor() string {
 
 func (r *ReportGenerator) generateVulnerabilitiesSection(vulns []Vulnerability) string {
 	if len(vulns) == 0 {
-		return `<h2>🎉 Vulnerabilities Found</h2>
-        <div style="padding: 20px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; color: #155724;">
-            <strong>Great news!</strong> No vulnerabilities were detected during this scan.
-        </div>`
+		return "<h2>🔍 Vulnerabilities</h2><p>No vulnerabilities found during this scan.</p>"
 	}
 
-	content := "<h2>🚨 Vulnerabilities Found</h2>\n"
+	content := "<h2>🔍 Vulnerabilities Found</h2>\n"
+
 	for _, vuln := range vulns {
 		severityClass := fmt.Sprintf("severity-%s", strings.ToLower(vuln.Severity))
 		content += fmt.Sprintf(`
         <div class="vuln-card">
             <div class="vuln-header %s">
-                %s - %s (%s Severity)
+                %s - %s
             </div>
             <div class="vuln-body">
-                <p><strong>Module:</strong> %s</p>
-                <p><strong>Target:</strong> %s</p>
-                <p><strong>Description:</strong> %s</p>
-                <p><strong>Impact:</strong> %s</p>
-                <p><strong>Evidence:</strong> <code>%s</code></p>
-                <p><strong>Remediation:</strong> %s</p>
-                <p><strong>Found at:</strong> %s</p>
+                <p><strong>🎯 Target:</strong> %s</p>
+                <p><strong>📊 CVSS Score:</strong> %.1f</p>
+                <p><strong>🔍 Module:</strong> %s</p>
+                <p><strong>📝 Description:</strong> %s</p>
+                <p><strong>💥 Impact:</strong> %s</p>
+                <p><strong>🔧 Remediation:</strong> %s</p>
+                <p><strong>🔬 Evidence:</strong> <code>%s</code></p>
+                <p><strong>⏰ Discovered:</strong> %s</p>
             </div>
         </div>`,
 			severityClass,
-			vuln.ID,
-			vuln.Title,
 			vuln.Severity,
-			vuln.Module,
+			vuln.Title,
 			vuln.Target,
+			vuln.CVSS,
+			vuln.Module,
 			vuln.Description,
 			vuln.Impact,
-			vuln.Evidence,
 			vuln.Remediation,
+			vuln.Evidence,
 			vuln.Timestamp.Format("2006-01-02 15:04:05"),
 		)
 	}
+
 	return content
 }
 
 func (r *ReportGenerator) generateTimelineSection() string {
-	content := "<h2>⏱️ Scan Timeline</h2>\n<div class=\"timeline\">\n"
+	content := "<h2>⏱️ Scan Timeline</h2>\n"
+	if len(r.scanResult.Vulnerabilities) == 0 {
+		content += "<p>No timeline events to display.</p>"
+		return content
+	}
+
+	content += "<div class=\"timeline\">\n"
 
 	// Add scan start
 	content += fmt.Sprintf(`
         <div class="timeline-item">
-            <strong>%s</strong> - Scan started for target: %s
+            <strong>%s</strong> - Scan started on %s
         </div>`,
 		r.scanResult.StartTime.Format("15:04:05"),
 		r.scanResult.Target,
 	)
 
-	// Add vulnerability discoveries
+	// Add vulnerabilities
 	for _, vuln := range r.scanResult.Vulnerabilities {
 		content += fmt.Sprintf(`
         <div class="timeline-item">

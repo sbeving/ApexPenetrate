@@ -262,6 +262,69 @@ func (p *ssrfPlugin) Run(target string, options map[string]interface{}) (interfa
 	return SSRFScan(target, customParams, customPayloads), nil
 }
 
+func (p *ssrfPlugin) Help() string {
+	return `
+🔗 SSRF Scanner - Server-Side Request Forgery Vulnerability Detector
+
+DESCRIPTION:
+  Detects Server-Side Request Forgery (SSRF) vulnerabilities where applications make
+  requests to attacker-controlled URLs, potentially accessing internal systems.
+
+USAGE:
+  ssrf <target_url> [options]
+
+OPTIONS:
+  params    - Comma-separated list of parameters to test (url,file,image,etc.)
+  payloads  - Comma-separated list of SSRF payloads to test
+
+EXAMPLES:
+  ssrf https://example.com/upload
+  ssrf https://example.com --params url,file,image
+  ssrf https://example.com --payloads http://169.254.169.254,file:///etc/passwd
+
+VULNERABLE PARAMETERS:
+  • URL Parameters: url, uri, link, src, href, redirect
+  • File Parameters: file, path, document, image, avatar
+  • API Parameters: webhook, callback, api_url, endpoint
+
+ATTACK SCENARIOS:
+  • Cloud Metadata: Access AWS/Azure/GCP metadata services
+  • Internal Network: Scan internal services and databases
+  • File System: Read local files via file:// protocol
+  • Port Scanning: Enumerate internal network services
+
+SSRF PAYLOADS:
+  • AWS Metadata: http://169.254.169.254/latest/meta-data/
+  • Azure Metadata: http://169.254.169.254/metadata/instance
+  • GCP Metadata: http://metadata.google.internal/computeMetadata/v1/
+  • Local Files: file:///etc/passwd, file:///windows/system32/drivers/etc/hosts
+  • Internal IPs: http://127.0.0.1, http://192.168.1.1, http://10.0.0.1
+
+EVASION TECHNIQUES:
+  • IP Encoding: http://0x7f000001 (hex), http://2130706433 (decimal)
+  • Domain Bypass: Use redirect services or URL shorteners
+  • Protocol Bypass: ftp://, dict://, gopher://, ldap://
+  • DNS Rebinding: evil.com that resolves to internal IPs
+  • IPv6: http://[::1] for localhost
+
+PRO TIPS:
+  💡 Test different protocols (http, https, ftp, file, dict, gopher)
+  💡 Check response time differences for internal vs external requests
+  💡 Look for error messages revealing internal network structure
+  💡 Test with cloud metadata endpoints specific to platform
+  💡 Use Burp Collaborator or similar for blind SSRF detection
+  💡 Check for partial response reflection indicating successful requests
+
+DETECTION METHODS:
+  • Time-based: Measure response delays for internal requests
+  • Error-based: Analyze error messages for internal service responses
+  • Content-based: Look for reflected internal service responses
+  • Out-of-band: Use external services to detect blind SSRF
+
+RISK LEVEL: High to Critical (internal network access, data exposure)
+`
+}
+
 func init() {
 	core.RegisterPlugin(&ssrfPlugin{})
 }

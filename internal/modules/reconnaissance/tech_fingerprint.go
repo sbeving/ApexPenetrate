@@ -75,6 +75,36 @@ func (p *techFingerprintPlugin) Options() []core.ModuleOption {
 func (p *techFingerprintPlugin) Run(target string, options map[string]interface{}) (interface{}, error) {
 	return TechFingerprint(target), nil
 }
+func (p *techFingerprintPlugin) Help() string {
+	return `
+🔬 Technology Fingerprinting - Web Stack Detection
+
+DESCRIPTION:
+  Identifies web technologies, frameworks, and CMS platforms through header analysis,
+  HTML patterns, and JavaScript library detection.
+
+USAGE:
+  techfingerprint <target_url> [options]
+
+EXAMPLES:
+  techfingerprint https://example.com
+  techfingerprint https://admin.site.com
+  techfingerprint http://192.168.1.100
+
+DETECTION METHODS:
+  • HTTP Headers: Server, X-Powered-By, X-Framework
+  • HTML Meta Tags: Generator, framework indicators
+  • JavaScript Libraries: jQuery, React, Angular detection
+  • CSS Framework: Bootstrap, Foundation identification
+
+PRO TIPS:
+  💡 Use results to select appropriate attack vectors
+  💡 Check for version-specific vulnerabilities
+  💡 Look for development frameworks in staging environments
+
+RISK LEVEL: Low (reconnaissance for vulnerability research)
+`
+}
 
 func init() {
 	core.RegisterPlugin(&techFingerprintPlugin{})

@@ -70,6 +70,38 @@ func (p *sslTLSPlugin) Run(target string, options map[string]interface{}) (inter
 	return SSLTLSScan(target), nil
 }
 
+func (p *sslTLSPlugin) Help() string {
+	return `
+🔒 SSL/TLS Scanner - Certificate & Encryption Analysis
+
+DESCRIPTION:
+  Analyzes SSL/TLS configurations for security weaknesses including weak ciphers,
+  protocol vulnerabilities, and certificate issues.
+
+USAGE:
+  ssltls <target:port> [options]
+
+EXAMPLES:
+  ssltls example.com:443
+  ssltls 192.168.1.1:8443
+  ssltls secure.site.com:443
+
+SECURITY CHECKS:
+  • Certificate Validation: Expiry, trust chain, CN/SAN matching
+  • Protocol Versions: SSLv2, SSLv3, TLS 1.0/1.1 deprecation
+  • Cipher Suites: Weak/insecure cipher identification
+  • Vulnerabilities: Heartbleed, POODLE, BEAST, CRIME
+
+PRO TIPS:
+  💡 Check for self-signed certificates indicating test environments
+  💡 Look for wildcard certificates that might cover multiple subdomains
+  💡 Test for client certificate requirements
+  💡 Check for HTTP Strict Transport Security (HSTS) headers
+
+RISK LEVEL: Medium (encryption weaknesses, certificate issues)
+`
+}
+
 func init() {
 	core.RegisterPlugin(&sslTLSPlugin{})
 }

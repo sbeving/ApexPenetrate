@@ -204,6 +204,69 @@ func (p *openRedirectPlugin) Run(target string, options map[string]interface{}) 
 	return OpenRedirectScan(target, customParams, customPayloads), nil
 }
 
+func (p *openRedirectPlugin) Help() string {
+	return `
+🔀 Open Redirect Scanner - URL Redirection Vulnerability Detector
+
+DESCRIPTION:
+  Detects open redirect vulnerabilities where applications redirect users to attacker-controlled
+  domains without proper validation. Critical for phishing and authentication bypass attacks.
+
+USAGE:
+  openredirect <target_url> [options]
+
+OPTIONS:
+  params    - Comma-separated list of parameters to test (url,redirect,return,etc.)
+  payloads  - Comma-separated list of malicious URLs to test
+
+EXAMPLES:
+  openredirect https://example.com/login
+  openredirect https://example.com --params url,redirect,return
+  openredirect https://example.com --payloads https://evil.com,//evil.com
+
+VULNERABLE PARAMETERS:
+  • Common: url, redirect, return, next, continue, goto
+  • Less Common: returnTo, redirectTo, forward, destination
+  • Framework Specific: spring_redirect, success_url, failure_url
+
+ATTACK SCENARIOS:
+  • Phishing: Redirect victims from trusted domain to malicious clone
+  • OAuth Bypass: Hijack authentication flows via redirect_uri
+  • SSRF Chain: Use redirects to access internal services
+  • Cache Poisoning: Poison CDN caches with malicious redirects
+
+PAYLOAD TECHNIQUES:
+  • Protocol-relative: //evil.com (bypasses basic validation)
+  • Subdomain: evil.victim.com (domain confusion)
+  • IP Address: http://192.168.1.1 (bypass domain filters)
+  • Encoded URLs: http%3A%2F%2Fevil.com (encoding evasion)
+  • Multiple Redirects: Chain redirects to bypass filters
+
+EVASION TECHNIQUES:
+  • URL Encoding: %2f%2fevil.com
+  • Double Encoding: %252f%252fevil.com
+  • Unicode Bypass: evil。com (using unicode dots)
+  • Backslash Bypass: https:\\/\\/evil.com
+  • @ Symbol: https://victim.com@evil.com
+
+PRO TIPS:
+  💡 Test all redirect parameters, not just obvious ones
+  💡 Check for client-side redirects (JavaScript window.location)
+  💡 Look for relative path bypasses (../../../evil.com)
+  💡 Test with different protocols (ftp://, javascript:, data:)
+  💡 Check if redirects work with POST requests
+  💡 Test parameter pollution (url=safe&url=evil)
+
+DETECTION METHODS:
+  • Follow HTTP redirects and check final destination
+  • Look for 301/302 responses with attacker-controlled Location header
+  • Check for meta refresh redirects in HTML
+  • Detect JavaScript-based redirects
+
+RISK LEVEL: Medium to High (phishing and authentication bypass)
+`
+}
+
 func init() {
 	core.RegisterPlugin(&openRedirectPlugin{})
 }

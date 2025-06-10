@@ -87,6 +87,56 @@ func (p *corsTesterPlugin) Description() string {
 func (p *corsTesterPlugin) Run(target string, options map[string]interface{}) (interface{}, error) {
 	return CORSTester(target), nil
 }
+func (p *corsTesterPlugin) Help() string {
+	return `
+🛡️  CORS Tester - Cross-Origin Resource Sharing Configuration Analyzer
+
+DESCRIPTION:
+  Tests for Cross-Origin Resource Sharing (CORS) misconfigurations that could lead to
+  data theft or unauthorized access by malicious websites.
+
+USAGE:
+  cors <target_url>
+
+EXAMPLES:
+  cors https://api.example.com
+  cors https://example.com/api/users
+  cors https://subdomain.example.com
+
+ATTACK SCENARIOS:
+  • Data Theft: Misconfigured CORS allows malicious sites to read sensitive data
+  • Credential Theft: Overly permissive origins can expose user sessions
+  • API Abuse: Wildcard origins (*) with credentials can be exploited
+
+DETECTION TECHNIQUES:
+  • Tests various malicious origin headers
+  • Checks for wildcard (*) with credentials
+  • Analyzes Access-Control-Allow-* headers
+  • Verifies proper origin validation
+
+EVASION TECHNIQUES:
+  • Tests subdomain bypasses (evil.victim.com)
+  • Null origin testing
+  • Protocol manipulation (http vs https)
+  • Port-based bypasses
+
+PRO TIPS:
+  💡 Check for reflected origins (server echoes back any origin)
+  💡 Test both GET and POST requests with credentials
+  💡 Look for wildcard (*) with Access-Control-Allow-Credentials: true
+  💡 Test subdomain attacks when main domain has CORS
+  💡 Check preflight OPTIONS responses for additional vectors
+
+REMEDIATION:
+  • Use specific origin allowlists instead of wildcards
+  • Never use * with credentials enabled
+  • Implement proper origin validation
+  • Use HTTPS for sensitive CORS endpoints
+  • Regularly audit CORS configurations
+
+RISK LEVEL: Medium to High (depending on exposed data)
+`
+}
 func (p *corsTesterPlugin) Category() string { return "web" }
 func (p *corsTesterPlugin) Options() []core.ModuleOption {
 	return []core.ModuleOption{
