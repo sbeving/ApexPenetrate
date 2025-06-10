@@ -55,8 +55,8 @@
 
 ```sh
 # Clone the repository
-git clone https://github.com/yourusername/apexpenetratego.git
-cd apexpenetratego
+git clone https://github.com/sbeving/ApexPenetrate.git
+cd ApexPenetrate
 
 # Build the executable
 go build -o apexpenetrate
@@ -111,8 +111,8 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) and our 
 If you like ApexPenetrateGo, please give us a star on GitHub and share it with your friends and colleagues!
 
 <p align="center">
-  <a href="https://github.com/yourusername/apexpenetratego/stargazers">
-    <img src="https://img.shields.io/github/stars/yourusername/apexpenetratego?style=social"/>
+  <a href="https://github.com/sbeving/ApexPenetrate/stargazers">
+    <img src="https://img.shields.io/github/stars/sbeving/ApexPenetrate?style=social"/>
   </a>
 </p>
 
