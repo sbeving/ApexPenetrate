@@ -5,13 +5,13 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/yourusername/apexpenetratego/stargazers"><img src="https://img.shields.io/github/stars/yourusername/apexpenetratego?style=social"/></a>
-  <img src="https://img.shields.io/github/license/yourusername/apexpenetratego"/>
+  <a href="https://github.com/sbeving/apexpenetrate/stargazers"><img src="https://img.shields.io/github/stars/yourusername/apexpenetratego?style=social"/></a>
+  <img src="https://img.shields.io/github/license/sbeving/apexpenetrate"/>
 </p>
 
 ---
 
-> **ApexPenetrateGo** is a modern, modular, and visually stunning automated penetration testing tool for professionals. Fast, extensible, and beautiful.
+> **ApexPenetrate** is a modern, modular, and visually stunning automated penetration testing tool for professionals. Fast, extensible, and beautiful.
 
 ---
 
