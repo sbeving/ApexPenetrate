@@ -5,8 +5,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/sbeving/apexpenetrate/stargazers"><img src="https://img.shields.io/github/stars/yourusername/apexpenetratego?style=social"/></a>
-  <img src="https://img.shields.io/github/license/sbeving/apexpenetrate"/>
+  <a href="https://github.com/sbeving/ApexPenetrate/stargazers"><img src="https://img.shields.io/github/stars/yourusername/apexpenetratego?style=social"/></a>
+  <img src="https://img.shields.io/github/license/sbeving/ApexPenetrate"/>
 </p>
 
 ---
