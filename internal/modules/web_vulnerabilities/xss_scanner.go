@@ -2,6 +2,7 @@
 package web_vulnerabilities
 
 import (
+	"apexPenetrateGo/internal/core"
 	"apexPenetrateGo/internal/core/logger"
 	"io"
 	"net/http"
@@ -13,15 +14,17 @@ import (
 
 // XSSScanner holds the state for XSS scanning
 type XSSScanner struct {
-	url string
-	log *logrus.Logger
+	url     string
+	log     *logrus.Logger
+	payload string
 }
 
 // NewXSSScanner creates a new instance of XSSScanner
 func NewXSSScanner(url string) *XSSScanner {
 	return &XSSScanner{
-		url: url,
-		log: logger.GetLogger(),
+		url:     url,
+		log:     logger.GetLogger(),
+		payload: "<script>alert('xss')</script>",
 	}
 }
 
@@ -29,7 +32,7 @@ func NewXSSScanner(url string) *XSSScanner {
 func (s *XSSScanner) ScanXSS() []map[string]string {
 	s.log.Infof("Scanning for XSS in %s...", s.url)
 	findings := []map[string]string{}
-	testPayload := "<script>alert('xss')</script>"
+	testPayload := s.payload
 	testURL := s.url
 	if strings.Contains(s.url, "?") {
 		testURL += "&xss=" + testPayload
@@ -53,4 +56,33 @@ func (s *XSSScanner) ScanXSS() []map[string]string {
 	time.Sleep(300 * time.Millisecond) // Simulate scan delay
 	s.log.Info("XSS scan complete.")
 	return findings
+}
+
+// XSSScannerPlugin implements the Plugin interface for XSS scanning
+// (for parametric/intelligent shell)
+type xssScannerPlugin struct{}
+
+func (p *xssScannerPlugin) Name() string        { return "XSSScanner" }
+func (p *xssScannerPlugin) Description() string { return "Scans for reflected XSS vulnerabilities" }
+func (p *xssScannerPlugin) Category() string    { return "web" }
+func (p *xssScannerPlugin) Options() []core.ModuleOption {
+	return []core.ModuleOption{
+		{Name: "payload", Type: "string", Default: "<script>alert('xss')</script>", Description: "Payload to inject for XSS testing", Required: false},
+	}
+}
+func (p *xssScannerPlugin) Run(target string, options map[string]interface{}) (interface{}, error) {
+	payload := "<script>alert('xss')</script>"
+	if val, ok := options["payload"]; ok {
+		if s, ok := val.(string); ok && s != "" {
+			payload = s
+		}
+	}
+	scanner := NewXSSScanner(target)
+	scanner.payload = payload
+	return scanner.ScanXSS(), nil
+}
+
+func init() {
+	// Register the plugin for shell/parametric use
+	core.RegisterPlugin(&xssScannerPlugin{})
 }

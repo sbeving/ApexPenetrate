@@ -24,8 +24,15 @@ var (
 	censysSecret string
 	modules      string // comma-separated list for --modules
 	configPath   string
-	config       *core.Config
 )
+
+var asciiBanner = `
+   ___                 ____            _       _        ____       
+  / _ \__ _ _ __ ___  |  _ \ ___  _ __| |_ ___| |__    |  _ \ _ __ 
+ | | | / _` + "`" + ` | '__/ _ \ | |_) / _ \| '__| __/ __| '_ \   | |_) | '__|
+ | |_| | (_| | | |  __/ |  __/ (_) | |  | || (__| | | |  |  __/| |   
+  \___/ \__,_|_|  \___| |_|   \___/|_|   \__\___|_| |_|  |_|   |_|   
+` + "\n🚀 ApexPenetrateGo - Automated Penetration Testing Framework\n"
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -36,6 +43,7 @@ various stages of security assessments, from reconnaissance to vulnerability
 scanning and reporting. Built with Go, it aims to be performant, modular, and
 easy to use, providing valuable insights for security professionals worldwide.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		color.HiCyan(asciiBanner)
 		// Initialize logger before any command runs
 		if verbose {
 			logger.SetupLogger("debug")
@@ -194,6 +202,41 @@ var autoCmd = &cobra.Command{
 	},
 }
 
+var moduleRegistryCmd = &cobra.Command{
+	Use:   "module-registry",
+	Short: "Manage available modules (list, enable, disable)",
+	Run: func(cmd *cobra.Command, args []string) {
+		color.Cyan("\n🧩 Registered Modules:")
+		for _, p := range core.ListPlugins() {
+			status := "❌"
+			if core.IsPluginEnabled(p.Name()) {
+				status = "✅"
+			}
+			color.Cyan("%s %s - %s", status, p.Name(), p.Description())
+		}
+	},
+}
+
+var enableModuleCmd = &cobra.Command{
+	Use:   "enable-module [name]",
+	Short: "Enable a module by name",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		core.EnablePlugin(args[0])
+		color.Green("Module '%s' enabled!", args[0])
+	},
+}
+
+var disableModuleCmd = &cobra.Command{
+	Use:   "disable-module [name]",
+	Short: "Disable a module by name",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		core.DisablePlugin(args[0])
+		color.Red("Module '%s' disabled!", args[0])
+	},
+}
+
 func loadConfigOrExit() {
 	if configPath != "" {
 		cfg, err := core.LoadConfig(configPath)
@@ -201,7 +244,6 @@ func loadConfigOrExit() {
 			fmt.Fprintf(os.Stderr, "Failed to load config: %v\n", err)
 			os.Exit(1)
 		}
-		config = cfg
 		if shodanAPIKey == "" && cfg.ShodanAPIKey != "" {
 			shodanAPIKey = cfg.ShodanAPIKey
 		}
@@ -252,4 +294,8 @@ func init() {
 	autoCmd.Flags().StringVarP(&autoTarget, "target", "t", "", "Target domain or IP (required)")
 	autoCmd.Flags().DurationVarP(&autoTimeout, "timeout", "w", 2*time.Second, "Timeout per port (e.g. 1s, 500ms)")
 	autoCmd.MarkFlagRequired("target")
+
+	rootCmd.AddCommand(moduleRegistryCmd)
+	rootCmd.AddCommand(enableModuleCmd)
+	rootCmd.AddCommand(disableModuleCmd)
 }

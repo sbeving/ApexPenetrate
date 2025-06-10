@@ -30,7 +30,7 @@ var DefaultHTTPClient = &http.Client{
 
 // SubdomainEnumerator holds the state for subdomain enumeration
 type SubdomainEnumerator struct {
-	Target          string // Exported for testing
+	Target          string      // Exported for testing
 	foundSubdomains chan string // Channel to send found subdomains
 	wg              sync.WaitGroup
 	httpClient      *http.Client

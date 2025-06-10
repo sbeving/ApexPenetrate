@@ -1,179 +1,123 @@
-# ApexPenetrate
+# ApexPenetrateGo
 
-![ApexPenetrate Logo Placeholder](https://via.placeholder.com/150x50?text=ApexPenetrate-Go)
+<p align="center">
+  <img src="assets/logo.png" width="320" alt="ApexPenetrateGo Logo"/>
+</p>
 
-ApexPenetrate is an automated penetration testing tool written in Go. It streamlines various stages of security assessments, from reconnaissance to vulnerability scanning and reporting.
+<p align="center">
+  <a href="https://github.com/yourusername/apexpenetratego/stargazers"><img src="https://img.shields.io/github/stars/yourusername/apexpenetratego?style=social"/></a>
+  <img src="https://img.shields.io/github/license/yourusername/apexpenetratego"/>
+</p>
 
-## Features (Initial)
+---
+
+> **ApexPenetrateGo** is a modern, modular, and visually stunning automated penetration testing tool for professionals. Fast, extensible, and beautiful.
+
+---
+
+## 🚀 Demo
+
+![ApexPenetrateGo CLI Demo](assets/demo.gif)
+
+> **Place your logo as `assets/logo.png` and a CLI demo as `assets/demo.gif` for best results!**
+
+---
+
+## Why ApexPenetrateGo?
+- **All-in-one**: Recon, OSINT, port scan, web vulns, reporting, and more.
+- **Beautiful CLI**: Colorful, emoji-rich, and ASCII art banners.
+- **Modular**: Add your own plugins and modules easily.
+- **Fast & Concurrent**: Built with Go for speed and reliability.
+- **API Integrations**: Shodan, Censys, crt.sh, and more.
+- **Pro Reporting**: HTML, JSON, TXT, CSV outputs.
+- **Open Source & Community-Driven**
+
+---
+
+## Features
 
 * **Reconnaissance:**
-    * Subdomain Enumeration (Concurrent Brute-force with HTTP HEAD requests)
-    * (Placeholder for Passive methods)
-* **Modular Architecture:** Designed for easy extension with new testing modules.
-* **Flexible Output:** Save results in JSON, TXT, CSV, or display directly to console.
-* **Robust Logging:** Detailed logging for debugging and audit trails using logrus.
-* **Single Binary:** Compile into a single executable for easy deployment.
-* **Fast, concurrent TCP port scanning**
-* **Shodan & Censys API Integration:** Enriches recon with internet-wide data (use --shodan, --censys-id, --censys-secret flags)
-* **Web Vulnerability Scanning:** Automated XSS detection (with more to come)
-* **Modular CLI:** Select modules to run with --modules (e.g. recon,ports,shodan,xss,smb)
-* **Config File Support:** Store API keys, module toggles, and constants in apexpenetrate.yaml or .json
-* **DNS Recon:** Automated DNS record enumeration
-* **HTTP Recon:** HTTP header and status code analysis
-* **SQLi Scanner:** Automated SQL injection detection
+    * Subdomain Enumeration (DNS + OSINT, no wordlists needed)
+    * DNS Recon, HTTP Recon
+* **Port Scanning:** Fast, concurrent TCP scan with banner grabbing
+* **Web Vulnerability Scanning:** XSS, SQLi modules
+* **API Integrations:** Shodan, Censys, crt.sh
+* **Modular CLI:** Run only what you want with `--modules`
+* **Config File Support:** YAML/JSON for API keys and settings
+* **Beautiful Output:** Console, JSON, TXT, CSV, HTML report
+* **Extensible:** Easy to add new modules/plugins
+
+---
 
 ## Installation
 
-Go 1.22 or newer is required.
+**Go 1.22+ required.**
 
-1.  **Clone the repository:**
-    `ash
-    git clone [https://github.com/sbeving/ApexPenetrate.git](https://github.com/sbeving/ApexPenetrate.git)
-    cd ApexPenetrate
-    `
+```sh
+# Clone the repository
+git clone https://github.com/yourusername/apexpenetratego.git
+cd apexpenetratego
 
-2.  **Download dependencies and build the executable:**
-    `ash
-    go mod tidy
-    go build -o apexpenetrate .
-    `
-    This will create an executable named pexpenetrate (or pexpenetrate.exe on Windows) in the current directory.
+# Build the executable
+go build -o apexpenetrate
 
-3.  **(Optional) Add to your PATH:**
-    For easier access, move the pexpenetrate executable to a directory in your system's PATH (e.g., /usr/local/bin/ on Linux/macOS, or a directory added to PATH on Windows).
+# (Optional) Install globally
+# On Linux/macOS:
+sudo mv apexpenetrate /usr/local/bin/
+# On Windows, add the folder to your PATH
+```
+
+---
 
 ## Usage
 
 ### Basic Reconnaissance
 
-To perform subdomain enumeration on a target:
-
-`ash
-./apexpenetrate recon example.com
-`
-(On Windows, use .\apexpenetrate.exe recon example.com)
-
-### Using a Custom Wordlist
-
-`ash
-./apexpenetrate recon example.com --wordlist path/to/your/wordlist.txt
-`
-
-### Saving Results to a File
-
-Save results in JSON format:
-
-`ash
-./apexpenetrate recon example.com --output results.json --format json
-`
-
-Save results in plain text:
-
-`ash
-./apexpenetrate recon example.com --output subdomains.txt --format txt
-`
-
-### Verbose Output for Debugging
-
-`ash
-./apexpenetrate -v recon example.com
-`
-
-### Running the CLI
-
-To run the CLI directly:
-
-`ash
-go run main.go
-`
-
-### TCP Port Scanning
-
-Scan a range of ports on a target:
-
 ```sh
-./apexpenetrate scan --target 127.0.0.1 --ports 1-1024
+apexpenetrate recon example.com
 ```
 
-Scan specific ports:
+### Save Results as JSON
 
 ```sh
-./apexpenetrate scan --target 127.0.0.1 --ports 22,80,443
-```
-
-Set a custom timeout per port:
-
-```sh
-./apexpenetrate scan --target 127.0.0.1 --ports 80 --timeout 500ms
+apexpenetrate recon example.com -o results.json -f json
 ```
 
 ### Full Automated Workflow
 
-Run all recon modules in sequence (subdomain enum, port scan, banner grab, SMB enum):
-
 ```sh
-./apexpenetrate full-auto --target example.com
+apexpenetrate full-auto --target example.com
 ```
 
-## Running Tests
-
-Navigate to the root of the pexPenetrateGo project and run:
-
-`ash
-go test ./...
-`
-
-## Example: Port Scanning
-
-To scan specific ports on a target IP:
-
-```go
-scanner := reconnaissance.NewPortScanner("127.0.0.1", []int{22, 80, 443}, time.Second)
-results := scanner.ScanPorts()
-for port, state := range results {
-    fmt.Printf("Port %d: %s\n", port, state)
-}
-```
-
-## Project Structure
-
-`
-apexPenetrateGo/
-├── main.go
-├── go.mod
-├── go.sum
-├── cmd/
-│   ├── root.go
-│   ├── recon.go
-│   └── scan.go
-├── internal/
-│   ├── core/
-│   │   ├── errors.go
-│   │   └── logger/
-│   │       └── logger.go
-│   ├── modules/
-│   │   ├── reconnaissance/
-│   │   │   ├── subdomain_enum.go
-│   │   │   └── port_scan.go
-│   │   ├── network_vulnerabilities/
-│   │   │   └── smb_enum.go
-│   │   └── web_vulnerabilities/
-│   │       └── xss_scanner.go
-│   ├── output/
-│   │   └── formatter.go
-│   └── reporting/
-│       └── report_gen.go
-└── test/
-    └── internal/
-        └── modules/
-            └── reconnaissance/
-                └── subdomain_enum_test.go
-`
+---
 
 ## Contributing
 
-We welcome contributions! Please see our CONTRIBUTING.md (to be created) for details on how to contribute.
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) and our [Code of Conduct](CODE_OF_CONDUCT.md).
+
+- Open issues for bugs/feature requests
+- Submit pull requests for improvements
+- Add your module/plugin to the registry!
+
+---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+[MIT](LICENSE)
+
+---
+
+## ⭐️ Star This Project!
+If you like ApexPenetrateGo, please give us a star on GitHub and share it with your friends and colleagues!
+
+<p align="center">
+  <a href="https://github.com/yourusername/apexpenetratego/stargazers">
+    <img src="https://img.shields.io/github/stars/yourusername/apexpenetratego?style=social"/>
+  </a>
+</p>
+
+---
+
+## Acknowledgements
+- Inspired by tools like Amass, Subfinder, Nmap, and ProjectDiscovery.
+- Thanks to the Go community and all contributors!

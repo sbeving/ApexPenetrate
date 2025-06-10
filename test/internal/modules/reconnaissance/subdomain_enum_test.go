@@ -61,8 +61,13 @@ func TestSubdomainEnumerator_TargetCleaning(t *testing.T) {
 
 	for _, tt := range tests {
 		enumerator := reconnaissance.NewSubdomainEnumerator(tt.input)
-		if enumerator.target != tt.expected {
-			t.Errorf("For input %q, expected target %q, got %q", tt.input, tt.expected, enumerator.target)
+		if enumerator.Target != tt.expected {
+			t.Errorf("For input %q, expected target %q, got %q", tt.input, tt.expected, enumerator.Target)
+		}
+		if enumerator.Target != "" {
+			t.Logf("Target is set: %s", enumerator.Target)
+		} else {
+			t.Errorf("Target should be set, got empty string")
 		}
 	}
 }
